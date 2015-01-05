@@ -11,8 +11,6 @@ import IRTS.CodegenErlang
 import System.Environment
 import System.Exit
 
-import Paths_idris
-
 data Opts = Opts { inputs :: [FilePath],
                    output :: FilePath }
 

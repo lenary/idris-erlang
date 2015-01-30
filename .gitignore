@@ -17,3 +17,4 @@ custom.mk
 tags
 TAGS
 src/Version_idris.hs
+*.beam

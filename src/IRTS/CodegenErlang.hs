@@ -26,7 +26,7 @@ codegenErlang ci = do let outfile = outputFile ci
                         Left err -> do putStrLn ("Error: " ++ err)
                                        exitFailure
                         Right ecg -> do let erlout = header outfile ++ (Map.elems . forms) ecg ++ [""]
-                                        --mapM_ print (decls ecg)
+                                        -- mapM_ print (decls ecg)
                                         writeFile outfile ("\n" `intercalate` erlout)
                                         p <- getPermissions outfile
                                         setPermissions outfile $ setOwnerExecutable True p
@@ -87,12 +87,6 @@ addRecord name arity = do records <- gets records
                           let records1 = insertBy (comparing fst) (name,arity) records
                           modify (\ecg -> ecg { records = records1 })
 
-isRecord :: Name -> ErlCG Bool
-isRecord name = do records <- gets records
-                   case lookup name records of
-                    Just _  -> return True
-                    Nothing -> return False
-
 -- We want to be able to compare the length of constructor arguments
 -- to the arity of that record constructor, so this returns the
 -- arity. If we can't find the record, then -1 is alright to return,
@@ -109,41 +103,35 @@ recordArity name = do records <- gets records
 -- binding. nextLocal is the largest (Loc n) seen at that level of the
 -- stack.
 
-popScope :: ErlCG ()
-popScope = modify (\ecg -> ecg { locals = tail (locals ecg),
-                                 nextLocal = tail (nextLocal ecg) })
+wipeScope :: ErlCG ()
+wipeScope = modify (\ecg -> ecg { locals = []
+                                , nextLocal = [0]})
 
-pushScope :: ErlCG ()
-pushScope = modify (\ecg -> ecg { locals = []:(locals ecg),
-                                  nextLocal = 0:(nextLocal ecg) })
+popScope :: ErlCG ()
+popScope = modify (\ecg -> ecg { locals = tail (locals ecg)
+                               , nextLocal = tail (nextLocal ecg) })
+
 
 pushScopeWithVars :: [String] -> ErlCG ()
-pushScopeWithVars vars = modify (\ecg -> ecg { locals = (zipWith (,) [0..] vars):(locals ecg),
-                                               nextLocal = (length vars) + (head (nextLocal ecg)):(nextLocal ecg) })
+pushScopeWithVars vars = modify (\ecg -> ecg { locals = (zipWith (,) [0..] vars):(locals ecg)
+                                             , nextLocal = (length vars) + (head (nextLocal ecg)):(nextLocal ecg) })
+
+
+inScope :: ErlCG a -> ErlCG a
+inScope = inScopeWithVars []
+
+inScopeWithVars :: [String] -> ErlCG a -> ErlCG a
+inScopeWithVars vars p = do pushScopeWithVars vars
+                            r <- p
+                            popScope
+                            return r
 
 getVar :: LVar -> ErlCG String
-getVar (Glob name) = throwError "Oh god, a global"
-getVar (Loc i)     = do ls <- gets locals
-                        case lookup i (concat ls) of
-                         Just var -> return var
-                         Nothing  -> throwError "Local Not Found. Oh Fuck."
-
-getNextLocal :: ErlCG String
-getNextLocal = do x <- head <$> gets nextLocal
-                  modify (\ecg -> ecg {nextLocal = (1+) `toHead` nextLocal ecg})
-                  return ("Local" ++ show x)
-
-newLocal :: LVar -> ErlCG String
-newLocal (Glob name) = throwError "newLocal on a Global variable"
-newLocal (Loc i)     = do getter <- getNextLocal
-                          modify (\ecg -> ecg {locals = ((i,getter):) `toHead` locals ecg})
-                          return getter
-
--- This applies f to the head of the list, leaving the tail
--- unchanged. It will blow up if you give it an empty list.
-toHead :: (a -> a) -> [a] -> [a]
-toHead _ [] = undefined
-toHead f (x:xs) = (f x):xs
+getVar (Glob name) = return $ erlVar name
+getVar (Loc i) = do ls <- gets (concat . locals)
+                    case lookup i ls of
+                     Just var -> return var
+                     Nothing  -> throwError "Local Not Found. Oh Fuck."
 
 {- The Code Generator:
 
@@ -182,10 +170,10 @@ generateErl alldecls = let (ctors, funs) = (isCtor . snd) `partition` alldecls
         isCtor (DConstructor _ _ _) = True
 
 generateFun :: Name -> [Name] -> DExp -> ErlCG ()
-generateFun name args exp = do pushScopeWithVars args'
-                               erlExp <- generateExp exp
+generateFun _    []   DNothing = return ()
+generateFun name args exp = do erlExp <- inScopeWithVars args' $ generateExp exp
                                emitForm (erlAtom name, length args) ((erlAtom name) ++ "(" ++ argsStr ++ ") -> "++ erlExp ++".")
-                               popScope
+                               wipeScope
   where args' = map erlVar args
         argsStr = ", " `intercalate` args'
 
@@ -202,13 +190,12 @@ generateExp (DApp _ name exprs)  = do arity <- recordArity name
                                        False -> return $ erlCall (erlAtom name) exprs'
 
 generateExp (DLet vn exp inExp) = do exp' <- generateExp exp
-                                     local <- getNextLocal
                                      inExp' <- generateExp inExp
                                      -- storeLocalForName vn local
-                                     return $ local ++ " = begin " ++ exp' ++ "end, "++ inExp'
+                                     return $ (erlVar vn) ++ " = begin " ++ exp' ++ "end, "++ inExp'
 
 -- These are never generated by the compiler right now
--- generateExp (DUpdate name exp) =
+generateExp (DUpdate _ exp) = generateExp exp
   
 -- The tuple is 1-indexed, and its first field is the name of the
 -- constructor, which is why we have to add 2 to the index we're given
@@ -235,7 +222,7 @@ generateExp (DConst c)          = generateConst c
 generateExp (DOp op exprs)      = do exprs' <- mapM generateExp exprs
                                      generatePrim op exprs'
 
-generateExp DNothing            = return "\'nothing\'"
+generateExp DNothing            = return "nothing"
 generateExp (DError str)        = return ("erlang:error("++ show str ++")")
 
 generateExp (DForeign _ _ _) = throwError "Foreign Calls not supported"
@@ -248,23 +235,15 @@ generateCase expr alts = do expr' <- generateExp expr
 
 -- Case Statement Clauses
 generateCaseAlt :: DAlt -> ErlCG String
-generateCaseAlt (DConCase _ name [] expr)   = do pushScope
-                                                 expr' <- generateExp expr
-                                                 popScope
+generateCaseAlt (DConCase _ name [] expr)   = do expr' <- inScope $ generateExp expr
                                                  return $ (erlAtom name) ++ " -> " ++ expr'
 generateCaseAlt (DConCase _ name args expr) = do let args' = map erlVar args
-                                                 pushScopeWithVars args'
-                                                 expr' <- generateExp expr
-                                                 popScope
+                                                 expr' <- inScopeWithVars args' $ generateExp expr
                                                  return $ "{"++ (", " `intercalate` ((erlAtom name):args')) ++ "} -> " ++ expr'
 generateCaseAlt (DConstCase const expr)     = do const' <- generateConst const
-                                                 pushScope
-                                                 expr' <- generateExp expr
-                                                 popScope
+                                                 expr' <- inScope $ generateExp expr
                                                  return $ const' ++ " -> " ++ expr'
-generateCaseAlt (DDefaultCase expr)         = do pushScope
-                                                 expr' <- generateExp expr
-                                                 popScope
+generateCaseAlt (DDefaultCase expr)         = do expr' <- inScope $ generateExp expr
                                                  return $ "_Default -> " ++ expr'
 
 

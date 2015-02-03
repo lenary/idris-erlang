@@ -1,13 +1,17 @@
 -module(idris_erlang_rts).
 
--export([floor/1, ceil/1]).
--export([str_index/2, str_null/1]).
+-define(TRUE, 0).
+-define(FALSE, 1).
 
+-export([floor/1, ceil/1]).
+-export([bool_cast/1]).
+-export([str_index/2, str_null/1]).
 -export([ptr_null/1, ptr_eq/2]).
 
 -export([print_str/2, read_str/1, read_chr/1]).
 -export([file_open/2, file_close/1, file_flush/1, file_eof/1, file_error/1, file_poll/1]).
 
+-type idr_bool() :: ?TRUE | ?FALSE.
 
 %%% This is a set of helper wrappers for the Idris Runtime System Most
 %%% are used for primitives, but there's some other helpers in here
@@ -37,6 +41,10 @@ ceil(X) ->
         false -> T + 1
     end.
 
+-spec bool_cast(boolean()) -> idr_bool().
+bool_cast(true) -> ?TRUE;
+bool_cast(_)    -> ?FALSE. 
+
 %% Strings
 
 % Just prevents some hacks in the code generator
@@ -44,26 +52,23 @@ ceil(X) ->
 str_index(Str, Idx) ->
     lists:nth(Idx+1, Str).
 
--spec str_null(string()) -> integer().
+-spec str_null(string()) -> idr_bool().
 str_null([]) ->
-    0;
+    ?TRUE;
 str_null(_) ->
-    1.
+    ?FALSE.
 
 %% Pointers
 
--spec ptr_null(any()) -> integer().
+-spec ptr_null(any()) -> idr_bool().
 ptr_null(undefined) ->
-    0;
+    ?TRUE;
 ptr_null(_) ->
-    1.
+    ?FALSE.
 
--spec ptr_eq(any(), any()) -> integer().
+-spec ptr_eq(any(), any()) -> idr_bool().
 ptr_eq(A,B) ->
-    case A =:= B of
-        true -> 0;
-        false -> 1
-    end.
+    bool_cast(A =:= B).
 
 
 %% IO Things. Mostly files, maybe some ports
@@ -71,13 +76,13 @@ ptr_eq(A,B) ->
 -type handle() :: file:io_device() | undefined.
 
 % Print a string exactly as it's provided, to a certain handle
--spec print_str(handle(), string()) -> integer().
+-spec print_str(handle(), string()) -> idr_bool().
 print_str(undefined, _) ->
-    1;
+    ?FALSE;
 print_str(Handle, Str) ->
     case file:write(Handle, Str) of
-        ok -> 0;
-        _ -> 1
+        ok -> ?TRUE;
+        _ -> ?FALSE
     end.
 
 %% Read a line from the handle
@@ -111,49 +116,49 @@ file_open(Name, Mode) ->
         _ -> undefined
     end.
 
--spec file_close(handle()) -> integer().
+-spec file_close(handle()) -> idr_bool().
 file_close(undefined) ->
-    0;
+    ?FALSE;
 file_close(Handle) ->
     case file:close(Handle) of 
-        ok -> 0;
-        _ -> 1
+        ok -> ?TRUE;
+        _ -> ?FALSE
     end.
 
--spec file_flush(handle()) -> integer().
+-spec file_flush(handle()) -> idr_bool().
 file_flush(undefined) ->
-    0;
+    ?FALSE;
 file_flush(Handle) -> 
     case file:sync(Handle) of
-        ok -> 0;
-        _ -> -1 
+        ok -> ?TRUE;
+        _ -> ?FALSE
     end.
 
 % This is really hacky. We have to do a read to find out if we're at
 % the EOF, so we do a 1-char read, then scan back by one char. If the
 % read or the scan fail, we say we're at the end, otherwise we use
 % real info to see if we're at the eof.
--spec file_eof(handle()) -> integer().
+-spec file_eof(handle()) -> idr_bool().
 file_eof(undefined) ->
-    0; %% Null is at EOF
+    ?TRUE; %% Null is at EOF
 file_eof(Handle) ->
     case file:read(Handle,1) of
-        eof -> 0; %% At EOF
+        eof -> ?TRUE; %% At EOF
         {ok, _} -> case file:position(Handle, {cur, -1}) of
-                       {ok, _} -> -1; %% Not at EOF
-                       {error, _} -> 0 %% Error Scanning Back -> EOF
+                       {ok, _} -> ?FALSE; %% Not at EOF
+                       {error, _} -> ?TRUE %% Error Scanning Back -> EOF
                    end;
-        {error, _} -> 0 %% Error -> EOF
+        {error, _} -> ?TRUE %% Error -> EOF
     end.                         
 
 %% In erlang, no files have errors... or something
--spec file_error(handle()) -> integer().
+-spec file_error(handle()) -> idr_bool().
 file_error(undefined) ->
-    0;
+    ?FALSE;
 file_error(_Handle) ->
-    0.
+    ?FALSE.
 
 %% And none are ready for reading, ever.
--spec file_poll(handle()) -> integer().
-file_poll(_Handle) -> 0.
+-spec file_poll(handle()) -> idr_bool().
+file_poll(_Handle) -> ?FALSE.
 

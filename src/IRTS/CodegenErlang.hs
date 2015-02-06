@@ -171,6 +171,7 @@ generateErl alldecls = let (ctors, funs) = (isCtor . snd) `partition` alldecls
         isCtor (DConstructor _ _ _) = True
 
 generateFun :: Name -> [Name] -> DExp -> ErlCG ()
+generateFun _ _ DNothing = return ()
 generateFun name args exp = do erlExp <- inScopeWithVars args' $ generateExp exp
                                emitForm (erlAtom name, length args) ((erlAtom name) ++ "(" ++ argsStr ++ ") -> "++ erlExp ++".")
                                wipeScope
@@ -244,9 +245,9 @@ generateCaseAlt (DConCase _ name [] expr)   = do expr' <- inScope $ generateExp 
 generateCaseAlt (DConCase _ name args expr) = do let args' = map erlVar args
                                                  expr' <- inScopeWithVars args' $ generateExp expr
                                                  return $ "{"++ (", " `intercalate` ((erlAtom name):args')) ++ "} -> " ++ expr'
-generateCaseAlt (DConstCase const expr)     = do const' <- generateConst const
+generateCaseAlt (DConstCase con expr)       = do con' <- generateConst con
                                                  expr' <- inScope $ generateExp expr
-                                                 return $ const' ++ " -> " ++ expr'
+                                                 return $ con' ++ " -> " ++ expr'
 generateCaseAlt (DDefaultCase expr)         = do expr' <- inScope $ generateExp expr
                                                  return $ "_Default -> " ++ expr'
 
@@ -274,7 +275,7 @@ generateConst (I i)  = return $ show i
 generateConst (BI i) = return $ show i
 generateConst (Fl f) = return $ show f
 generateConst (Ch c) | isPrint c = return ['$',c]
-                | otherwise = return $ show (fromEnum c)
+                     | otherwise = return $ show (fromEnum c)
 generateConst (Str s) = return $ show s
 
 generateConst (AType _)  = throwError "TODO: AType: No Idea"

@@ -1,0 +1,9 @@
+testFiles
+read from file: wat wat wat
+
+Not EOF
+testProcesses
+read from echo: foo
+
+testStrings
+null

@@ -1,0 +1,9 @@
+package erlang
+
+opts = "--total"
+
+modules = ErlPrelude,
+
+	  GenServer, GenFSM,
+
+	  Parameterised

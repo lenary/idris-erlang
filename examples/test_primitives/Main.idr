@@ -1,9 +1,8 @@
 module Main
 
-          
+import ErlTypes
 
-
-testFiles : IO ()
+testFiles : EIO ()
 testFiles = do putStrLn "testFiles"
                h <- openFile "test_file" Read
                putStrLn $ "read char from file: " ++ singleton !(fgetc h)
@@ -13,19 +12,20 @@ testFiles = do putStrLn "testFiles"
                h' <- openFile "other_file" Write
                fwrite h' "test"
                closeFile h'
-               
+
 -- testProcesses : IO ()
 -- testProcesses = do putStrLn "testProcesses"
 --                    h <- popen "echo 'foo'" Read
 --                    putStrLn $ "read from echo: " ++ !(fread h)
 --                    pclose h
 
-testStrings : IO ()
+{-
+testStrings : EIO ()
 testStrings = do putStrLn "testStrings"
                  s <- return ""
                  if !(nullStr s) then putStrLn "null" else putStrLn "not null"
-
-main : IO ()
+-}
+main : EIO ()
 main = do testFiles
           -- testProcesses
-          testStrings
+          -- testStrings

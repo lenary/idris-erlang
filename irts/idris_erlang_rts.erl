@@ -8,8 +8,9 @@
 -export([str_index/2, str_null/1]).
 -export([ptr_null/1, ptr_eq/2]).
 
--export([print_str/2, read_str/1, read_chr/1]).
--export([file_open/2, file_close/1, file_flush/1, file_eof/1, file_error/1, file_poll/1]).
+-export([write_str/1, write_file/2, read_str/0, read_file/1, read_chr/1]).
+-export([file_open/2, file_close/1, file_flush/1, file_eof/1,
+	 file_error/1, file_poll/1]).
 
 -type idr_bool() :: ?TRUE | ?FALSE.
 
@@ -43,7 +44,7 @@ ceil(X) ->
 
 -spec bool_cast(boolean()) -> idr_bool().
 bool_cast(true) -> ?TRUE;
-bool_cast(_)    -> ?FALSE. 
+bool_cast(_)    -> ?FALSE.
 
 %% Strings
 
@@ -76,24 +77,32 @@ ptr_eq(A,B) ->
 -type handle() :: file:io_device() | undefined.
 
 % Print a string exactly as it's provided, to a certain handle
--spec print_str(handle(), string()) -> idr_bool().
-print_str(undefined, _) ->
+-spec write_file(handle(), string()) -> idr_bool().
+write_file(undefined, _) ->
     ?FALSE;
-print_str(Handle, Str) ->
+write_file(Handle, Str) ->
     case file:write(Handle, Str) of
         ok -> ?TRUE;
         _ -> ?FALSE
     end.
 
-%% Read a line from the handle
--spec read_str(handle()) -> string().
-read_str(undefined) ->
+-spec write_str(string()) -> idr_bool().
+write_str(Str) ->
+    write_file(standard_io, Str).
+
+-spec read_file(handle()) -> string().
+read_file(undefined) ->
     "";
-read_str(Handle) ->
+read_file(Handle) ->
     case file:read_line(Handle) of
         {ok, Data} -> Data;
         _ -> ""
     end.
+
+%% Read a line from the handle
+-spec read_str() -> string().
+read_str() ->
+    read_file(standard_io).
 
 -spec read_chr(handle()) -> integer().
 read_chr(undefined) ->
@@ -120,7 +129,7 @@ file_open(Name, Mode) ->
 file_close(undefined) ->
     ?FALSE;
 file_close(Handle) ->
-    case file:close(Handle) of 
+    case file:close(Handle) of
         ok -> ?TRUE;
         _ -> ?FALSE
     end.
@@ -128,7 +137,7 @@ file_close(Handle) ->
 -spec file_flush(handle()) -> idr_bool().
 file_flush(undefined) ->
     ?FALSE;
-file_flush(Handle) -> 
+file_flush(Handle) ->
     case file:sync(Handle) of
         ok -> ?TRUE;
         _ -> ?FALSE
@@ -149,7 +158,7 @@ file_eof(Handle) ->
                        {error, _} -> ?TRUE %% Error Scanning Back -> EOF
                    end;
         {error, _} -> ?TRUE %% Error -> EOF
-    end.                         
+    end.
 
 %% In erlang, no files have errors... or something
 -spec file_error(handle()) -> idr_bool().
@@ -161,4 +170,3 @@ file_error(_Handle) ->
 %% And none are ready for reading, ever.
 -spec file_poll(handle()) -> idr_bool().
 file_poll(_Handle) -> ?FALSE.
-

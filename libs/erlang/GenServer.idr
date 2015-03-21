@@ -6,7 +6,7 @@ module GenServer
 import Parameterised
 
 -- For Atoms and Pids
-import ErlTypes
+import ErlPrelude
 
 data GSL : (cl:Type) -> (cl -> Type) -> Type -> Type where
   MkGSL : (cl:Type) -> (cr:cl -> Type) -> (ct:Type) -> GSL cl cr ct

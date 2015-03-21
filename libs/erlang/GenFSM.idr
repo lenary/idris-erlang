@@ -6,7 +6,7 @@ module GenFSM
 import Parameterised
 
 -- For Atoms and Pids
-import ErlTypes
+import ErlPrelude
 
 data GFL : (s:Type) -> (cl:Type) -> (cl -> s -> Type) -> Type -> Type where
   MkGFL : (s:Type) -> (cl:Type) -> (cr:(cl -> s -> Type)) -> (ct:Type) -> GFL s cl cr ct

@@ -9,6 +9,10 @@ data ErlFn : Type -> Type where
 data Atom : Type where
   MkAtom : (x : String) -> Atom
 
+
+ErlPid : Type
+ErlPid = Ptr
+
 mutual
   data Erl_NumTypes: Type -> Type where
     Erl_IntChar    : Erl_NumTypes Char

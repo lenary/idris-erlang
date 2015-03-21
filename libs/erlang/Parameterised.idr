@@ -6,7 +6,7 @@ import Control.Monad.State
 data IWorld : (t:Type) -> (t -> Type) -> Type where
   MkIWorld : (c:Type) -> (r : (c -> Type)) -> IWorld c r
 
--- Parameterised over an implicit world  
+-- Parameterised over an implicit world
 codata PIO : (w : IWorld _ _) -> Type -> Type where
   leaf : a -> PIO w a
   cont : {w : IWorld cs r} -> (c : cs) -> (r c -> Inf (PIO w a)) -> PIO w a
@@ -20,25 +20,25 @@ instance Functor (PIO w) where
   -- map : (m : a -> b) -> f a -> f b
   map m (leaf x)     = leaf (m x)
   map m (cont ca pa) = cont ca (\ra => Delay (map m (pa ra)))
-  
+
 
 instance Applicative (PIO w) where
   -- pure  : a -> f a
   pure = leaf
   -- (<$>) : f (a -> b) -> f a -> f b
-  (leaf f) <$> (leaf a) = leaf (f a)
-  (leaf f) <$> (cont ca pa) = cont ca (\ra => Delay (map f (pa ra)))
-  (cont cf pf) <$> (leaf a) = cont cf (\rf => Delay (pf rf <$> (leaf a)))
-  (cont cf pf) <$> (cont ca pa) = cont cf  
-                                       (\rf => Delay (cont ca 
-                                                           (\ra => Delay (pf rf <$> pa ra))))
+  (leaf f) <*> (leaf a) = leaf (f a)
+  (leaf f) <*> (cont ca pa) = cont ca (\ra => Delay (map f (pa ra)))
+  (cont cf pf) <*> (leaf a) = cont cf (\rf => Delay (pf rf <*> (leaf a)))
+  (cont cf pf) <*> (cont ca pa) = cont cf
+                                       (\rf => Delay (cont ca
+                                                           (\ra => Delay (pf rf <*> pa ra))))
 
 
 instance Monad (PIO w) where
   -- (>>=) : m a -> (a -> m b) -> m b
   (leaf a) >>= f = f a
   (cont ca pa) >>= f = cont ca (\ra => Delay (Force (pa ra) >>= f))
-  
+
 
 
 partial
@@ -56,10 +56,10 @@ while init p = f (p init)
 
 
 
-redirect : {w : IWorld cs rs} -> {w' : IWorld cs' rs'} -> PIO w a -> ((c:cs) -> PIO w' (rs c)) -> PIO w' a 
+redirect : {w : IWorld cs rs} -> {w' : IWorld cs' rs'} -> PIO w a -> ((c:cs) -> PIO w' (rs c)) -> PIO w' a
 redirect (leaf x) q = leaf x
 redirect (cont c p) q = redirect (p !(q c)) q
-                                
+
 
 -- Execution is parameterised over both the world and the monad you
 -- want to execute in, meaning you may be able to execute the same
@@ -70,7 +70,7 @@ class Monad m => Executable (w : IWorld cs rs) (m : Type -> Type) where
 
 
 -- An initial short example, from the papeer
-data Command = Write String 
+data Command = Write String
              | Read
 
 total
@@ -87,7 +87,7 @@ data XXX = Success | Fail
 wurzel : PIO MyWorld XXX
 wurzel = do interact (Write "Password (root):")
             s <- interact Parameterised.Read
-            if s == "Wurzel" 
+            if s == "Wurzel"
             then return Success
             else return Fail
 
@@ -113,4 +113,3 @@ instance Executable (StateWorld s) (StateT s Identity) where
   execute (leaf x) = return x
   execute (cont Get p) = do execute (p !get)
   execute (cont (Put x) p) = do execute (p !(put x))
-

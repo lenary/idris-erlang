@@ -20,11 +20,15 @@
 {'U_Erl_fgetc, getChar1', P_c0, P_c1} -> 'Erl_fgetc:getChar:0'(P_c0, P_c1, Arg0);
 {'U_Erl_fread1', P_c0} -> 'Erl_fread'(P_c0, Arg0);
 {'U_Erl_fwrite, writeFile1', P_c0, P_c1, P_c2, P_c3} -> 'Erl_fwrite:writeFile:0'(P_c0, P_c1, P_c2, P_c3, Arg0);
+{'U_Erl_nullStr, strIsNull1', P_c0, P_c1} -> 'Erl_nullStr:strIsNull:0'(P_c0, P_c1, Arg0);
 {'U_Erl_openFile, open1', P_c0, P_c1, P_c2, P_c3} -> 'Erl_openFile:open:0'(P_c0, P_c1, P_c2, P_c3, Arg0);
+'U_Erl_closeFile01' -> 'Erl_closeFile0'(Arg0);
 'U_Erl_feof01' -> 'Erl_feof0'(Arg0);
 'U_Erl_fgetc01' -> 'Erl_fgetc0'(Arg0);
 'U_Erl_fwrite01' -> 'Erl_fwrite0'(Arg0);
+'U_Erl_nullStr01' -> 'Erl_nullStr0'(Arg0);
 'U_Erl_openFile01' -> 'Erl_openFile0'(Arg0);
+'U_Main_main01' -> 'Main_main0'(Arg0);
 {'U_Main_testFiles01', P_c0} -> 'Main_testFiles0'(P_c0, Arg0);
 'U_Main_testFiles101' -> 'Main_testFiles10'(Arg0);
 'U_Main_testFiles11' -> 'Main_testFiles1'(Arg0);
@@ -36,6 +40,9 @@
 {'U_Main_testFiles71', P_c0} -> 'Main_testFiles7'(P_c0, Arg0);
 {'U_Main_testFiles81', P_c0} -> 'Main_testFiles8'(P_c0, Arg0);
 'U_Main_testFiles91' -> 'Main_testFiles9'(Arg0);
+'U_Main_testStrings01' -> 'Main_testStrings0'(Arg0);
+'U_Main_testStrings11' -> 'Main_testStrings1'(Arg0);
+'U_Main_testStrings21' -> 'Main_testStrings2'(Arg0);
 {'U_Prelude_Classes_Int instance of Prelude_Classes_Eq1', P_c0} -> 'Prelude_Classes_@Prelude_Classes_Eq$Int'(P_c0, Arg0);
 {'U_Prelude_putStr01', P_c0} -> 'Prelude_putStr0'(P_c0, Arg0);
 'U_Prelude_putStr11' -> 'Prelude_putStr1'(Arg0);
@@ -48,21 +55,28 @@ end.
 'EVAL0'(Arg0) -> case Arg0 of
 _Default -> Arg0
 end.
-'Erl_closeFile'(E0) -> {'U_Erl_closeFile, close1', undefined, E0}.
-'Erl_closeFile:close:0'(E0, X, W) -> ok.
+'Erl_closeFile'(E0) -> {'U_io_bind1', undefined, undefined, undefined, {'U_Erl_closeFile, close1', undefined, E0}, 'U_Erl_closeFile01'}.
+'Erl_closeFile0'(In0) -> {'U_io_return1', undefined, undefined, 'MkUnit'}.
+'Erl_closeFile:close:0'(E0, X, W) -> idris_erlang_rts:file_close(X).
 'Erl_feof'(E0) -> {'U_io_bind1', undefined, undefined, undefined, {'U_Erl_feof, fileEOF1', undefined, E0}, 'U_Erl_feof01'}.
 'Erl_feof0'(In0) -> {'U_io_return1', undefined, undefined, case 'APPLY0'('APPLY0'('Prelude_Classes_=='(undefined, 'U_Prelude_Classes_Int instance of Prelude_Classes_Eq2'), In0), 0) of
 'Prelude_Bool_False' -> 'Prelude_Bool_True';
 'Prelude_Bool_True' -> 'Prelude_Bool_False'
 end}.
-'Erl_feof:fileEOF:0'(E0, X, W) -> ok.
+'Erl_feof:fileEOF:0'(E0, X, W) -> idris_erlang_rts:file_eof(X).
 'Erl_fgetc'(E0) -> {'U_io_bind1', undefined, undefined, undefined, {'U_Erl_fgetc, getChar1', undefined, E0}, 'U_Erl_fgetc01'}.
 'Erl_fgetc0'(In0) -> {'U_io_return1', undefined, undefined, In0}.
-'Erl_fgetc:getChar:0'(E0, X, W) -> ok.
+'Erl_fgetc:getChar:0'(E0, X, W) -> idris_erlang_rts:read_chr(X).
 'Erl_fread'(E0, W) -> idris_erlang_rts:read_file(E0).
 'Erl_fwrite'(E0, E1) -> {'U_io_bind1', undefined, undefined, undefined, {'U_Erl_fwrite, writeFile1', undefined, undefined, E0, E1}, 'U_Erl_fwrite01'}.
 'Erl_fwrite0'(In0) -> {'U_io_return1', undefined, undefined, 'MkUnit'}.
-'Erl_fwrite:writeFile:0'(E0, E1, X, X1, W) -> ok.
+'Erl_fwrite:writeFile:0'(E0, E1, X, X1, W) -> idris_erlang_rts:write_file(X, X1).
+'Erl_nullStr'(E0) -> {'U_io_bind1', undefined, undefined, undefined, {'U_Erl_nullStr, strIsNull1', undefined, E0}, 'U_Erl_nullStr01'}.
+'Erl_nullStr0'(In0) -> {'U_io_return1', undefined, undefined, case 'APPLY0'('APPLY0'('Prelude_Classes_=='(undefined, 'U_Prelude_Classes_Int instance of Prelude_Classes_Eq2'), In0), 0) of
+'Prelude_Bool_False' -> 'Prelude_Bool_True';
+'Prelude_Bool_True' -> 'Prelude_Bool_False'
+end}.
+'Erl_nullStr:strIsNull:0'(E0, X, W) -> idris_erlang_rts:str_null(X).
 'Erl_openFile'(E0, E1) -> {'U_io_bind1', undefined, undefined, undefined, {'U_Erl_openFile, open1', undefined, undefined, E0, case E1 of
 'Prelude_Read' -> "r";
 'Prelude_ReadWrite' -> "rw";
@@ -74,15 +88,16 @@ end}, 'U_Erl_openFile01'}.
 'Prelude_ReadWrite' -> "rw";
 'Prelude_Write' -> "w"
 end.
-'Erl_openFile:open:0'(E0, E1, X, X1, W) -> ok.
+'Erl_openFile:open:0'(E0, E1, X, X1, W) -> idris_erlang_rts:file_open(X, X1).
 'Force'(E0, E1, E2) -> In0 = begin 'EVAL0'(E2)end, In0.
-'Main_main'() -> 'Main_testFiles'().
+'Main_main'() -> {'U_io_bind1', undefined, undefined, undefined, 'Main_testFiles'(), 'U_Main_main01'}.
+'Main_main0'(In0) -> 'Main_testStrings'().
 'Main_testFiles'() -> {'U_io_bind1', undefined, undefined, undefined, 'Prelude_putStr'(undefined, [$t, $e, $s, $t, $F, $i, $l, $e, $s, 10]), 'U_Main_testFiles101'}.
-'Main_testFiles0'(In9, In10) -> {'U_Erl_closeFile, close1', undefined, In9}.
+'Main_testFiles0'(In9, In10) -> 'Erl_closeFile'(In9).
 'Main_testFiles1'(In9) -> {'U_io_bind1', undefined, undefined, undefined, 'Erl_fwrite'(In9, "test"), {'U_Main_testFiles01', In9}}.
 'Main_testFiles10'(In0) -> {'U_io_bind1', undefined, undefined, undefined, 'Erl_openFile'("test_file", 'Prelude_Read'), 'U_Main_testFiles91'}.
 'Main_testFiles2'(In8) -> {'U_io_bind1', undefined, undefined, undefined, 'Erl_openFile'("other_file", 'Prelude_Write'), 'U_Main_testFiles11'}.
-'Main_testFiles3'(In1, In7) -> {'U_io_bind1', undefined, undefined, undefined, {'U_Erl_closeFile, close1', undefined, In1}, 'U_Main_testFiles21'}.
+'Main_testFiles3'(In1, In7) -> {'U_io_bind1', undefined, undefined, undefined, 'Erl_closeFile'(In1), 'U_Main_testFiles21'}.
 'Main_testFiles4'(In1, In6) -> {'U_io_bind1', undefined, undefined, undefined, case In6 of
 'Prelude_Bool_False' -> 'Prelude_putStr'(undefined, [$N, $o, $t, $ , $E, $O, $F, 10]);
 'Prelude_Bool_True' -> 'Prelude_putStr'(undefined, [$E, $O, $F, 10])
@@ -92,6 +107,13 @@ end, {'U_Main_testFiles31', In1}}.
 'Main_testFiles7'(In1, In3) -> {'U_io_bind1', undefined, undefined, undefined, {'U_Erl_fread1', In1}, {'U_Main_testFiles61', In1}}.
 'Main_testFiles8'(In1, In2) -> {'U_io_bind1', undefined, undefined, undefined, 'Prelude_putStr'(undefined, (("read char from file: " ++ [In2|""]) ++ [10])), {'U_Main_testFiles71', In1}}.
 'Main_testFiles9'(In1) -> {'U_io_bind1', undefined, undefined, undefined, 'Erl_fgetc'(In1), {'U_Main_testFiles81', In1}}.
+'Main_testStrings'() -> {'U_io_bind1', undefined, undefined, undefined, 'Prelude_putStr'(undefined, [$t, $e, $s, $t, $S, $t, $r, $i, $n, $g, $s, 10]), 'U_Main_testStrings21'}.
+'Main_testStrings0'(In2) -> case In2 of
+'Prelude_Bool_False' -> 'Prelude_putStr'(undefined, [$n, $o, $t, $ , $n, $u, $l, $l, 10]);
+'Prelude_Bool_True' -> 'Prelude_putStr'(undefined, [$n, $u, $l, $l, 10])
+end.
+'Main_testStrings1'(In1) -> {'U_io_bind1', undefined, undefined, undefined, 'Erl_nullStr'(In1), 'U_Main_testStrings01'}.
+'Main_testStrings2'(In0) -> {'U_io_bind1', undefined, undefined, undefined, {'U_io_return1', undefined, undefined, ""}, 'U_Main_testStrings11'}.
 'Prelude_Bool_boolElim'(E0, E1, E2, E3) -> case E1 of
 'Prelude_Bool_False' -> 'EVAL0'(E3);
 'Prelude_Bool_True' -> 'EVAL0'(E2)

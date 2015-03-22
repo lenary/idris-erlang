@@ -1,7 +1,7 @@
 -module(idris_erlang_rts).
 
--define(TRUE, 0).
--define(FALSE, 1).
+-define(TRUE,  1).
+-define(FALSE, 0).
 
 -export([floor/1, ceil/1]).
 -export([bool_cast/1]).

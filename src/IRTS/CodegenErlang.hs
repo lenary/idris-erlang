@@ -61,7 +61,7 @@ header filename data_dir
      "-compile(nowarn_unused_function).", -- don't tell me off for not using a fun
      "-compile(nowarn_unused_vars).",     -- don't tell me off for not using a variable
      "",
-     "-define(TRUE, 1).",
+     "-define(TRUE,  1).",
      "-define(FALSE, 0).",
      ""]
   where modulename = takeWhile (/='.') filename
@@ -253,7 +253,7 @@ generateExp (DOp op exprs)      = do exprs' <- mapM generateExp exprs
 generateExp DNothing            = return "undefined"
 generateExp (DError str)        = return ("erlang:error("++ show str ++")")
 
-generateExp (DForeign fd rd ad) = generateForeign fd rd ad
+generateExp (DForeign ret nm args) = generateForeign ret nm args
 
 -- Case Statements
 generateCase :: DExp -> [DAlt] -> ErlCG String
@@ -277,8 +277,8 @@ generateCaseAlt (DDefaultCase expr)         = do expr' <- inScope $ generateExp 
 
 -- Foreign Calls
 generateForeign :: FDesc -> FDesc -> [(FDesc,DExp)] -> ErlCG String
-generateForeign fd rd ad = do liftIO (print "fcall" >> print fd >> print rd >> print ad)
-                              return "ok"
+generateForeign ret (FStr nm) args = do args' <- mapM (generateExp . snd) args
+                                        return $ nm ++ "("++ (", " `intercalate` args') ++")"
 
 -- Some Notes on Constants
 --

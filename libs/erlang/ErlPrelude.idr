@@ -9,7 +9,6 @@ data ErlFn : Type -> Type where
 data Atom : Type where
   MkAtom : (x : String) -> Atom
 
-
 ErlPid : Type
 ErlPid = Ptr
 
@@ -56,18 +55,21 @@ namespace Erl
           modeStr ReadWrite = "rw"
 
           open : String -> String -> EIO Ptr
-          open = foreign FFI_Erl "file_open" (String -> String -> EIO Ptr)
+          open = foreign FFI_Erl "idris_erlang_rts:file_open" (String -> String -> EIO Ptr)
+
 
   closeFile : EFile -> EIO ()
-  closeFile (EHandle p) = close p
-    where close : Ptr -> EIO ()
-          close = foreign FFI_Erl "file_close" (Ptr -> EIO ())
+  closeFile (EHandle p) = do x <- close p
+                             return ()
+    where close : Ptr -> EIO Int
+          close = foreign FFI_Erl "idris_erlang_rts:file_close" (Ptr -> EIO Int)
+
 
   fgetc : EFile -> EIO Char
   fgetc (EHandle p) = do c <- getChar p
                          return (cast c)
     where getChar : Ptr -> EIO Int
-          getChar = foreign FFI_Erl "read_chr" (Ptr -> EIO Int)
+          getChar = foreign FFI_Erl "idris_erlang_rts:read_chr" (Ptr -> EIO Int)
 
 
   fread : EFile -> EIO String
@@ -78,27 +80,27 @@ namespace Erl
   fwrite (EHandle h) s = do writeFile h s
                             return ()
     where writeFile : Ptr -> String -> EIO Int
-          writeFile = foreign FFI_Erl "write_file" (Ptr -> String -> EIO Int)
+          writeFile = foreign FFI_Erl "idris_erlang_rts:write_file" (Ptr -> String -> EIO Int)
 
   feof : EFile -> EIO Bool
   feof (EHandle p) = do res <- fileEOF p
                         return (res /= 0)
     where fileEOF : Ptr -> EIO Int
-          fileEOF = foreign FFI_Erl "file_eof" (Ptr -> EIO Int)
+          fileEOF = foreign FFI_Erl "idris_erlang_rts:file_eof" (Ptr -> EIO Int)
 
 
   nullStr : String -> EIO Bool
   nullStr s = do res <- strIsNull s
                  return (res /= 0)
     where strIsNull : String -> EIO Int
-          strIsNull = foreign FFI_Erl "str_null" (String -> EIO Int)
+          strIsNull = foreign FFI_Erl "idris_erlang_rts:str_null" (String -> EIO Int)
 
 
   nullPtr : Ptr -> EIO Bool
   nullPtr p = do res <- isNull p
                  return (res /= 0)
     where isNull : Ptr -> EIO Int
-          isNull = foreign FFI_Erl "ptr_null" (Ptr -> EIO Int)
+          isNull = foreign FFI_Erl "idris_erlang_rts:ptr_null" (Ptr -> EIO Int)
 
 string_to_atom : String -> EIO Atom
 string_to_atom = foreign FFI_Erl "list_to_atom" (String -> EIO Atom)

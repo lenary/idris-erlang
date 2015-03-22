@@ -1,6 +1,6 @@
 module Main
 
-import ErlTypes
+import ErlPrelude
 
 testFiles : EIO ()
 testFiles = do putStrLn "testFiles"
@@ -19,13 +19,14 @@ testFiles = do putStrLn "testFiles"
 --                    putStrLn $ "read from echo: " ++ !(fread h)
 --                    pclose h
 
-{-
+
 testStrings : EIO ()
 testStrings = do putStrLn "testStrings"
                  s <- return ""
                  if !(nullStr s) then putStrLn "null" else putStrLn "not null"
--}
+
+
 main : EIO ()
 main = do testFiles
           -- testProcesses
-          -- testStrings
+          testStrings

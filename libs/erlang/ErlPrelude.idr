@@ -107,6 +107,3 @@ string_to_atom = foreign FFI_Erl "list_to_atom" (String -> EIO Atom)
 
 lists_reverse : List Int -> EIO (List Int)
 lists_reverse = foreign FFI_Erl "lists:reverse" (List Int -> EIO (List Int))
-
-swap : (String, Atom) -> EIO (Atom, String)
-swap = foreign FFI_Erl "swap" ((String, Atom) -> EIO (Atom, String))

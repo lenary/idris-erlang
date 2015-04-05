@@ -1,4 +1,4 @@
-%unqualified
+module ErlPrelude
 
 %access public
 
@@ -6,6 +6,12 @@ data ErlFn : Type -> Type where
   MkErlFun : (x : t) -> ErlFn t
 %used MkErlFun x
 
+data ErlRaw : Type* -> Type* where
+  MkERaw : (x:t) -> ErlRaw t
+%used MkERaw x
+
+
+abstract
 data Atom : Type where
   MkAtom : (x : String) -> Atom
 
@@ -27,7 +33,7 @@ mutual
     Erl_Atom : Erl_Types Atom
     Erl_Ptr  : Erl_Types Ptr
     Erl_Unit : Erl_Types ()
-    Erl_Any  : Erl_Types (Raw a)
+    Erl_Any  : Erl_Types (ErlRaw a)
     Erl_List : Erl_Types a -> Erl_Types (List a)
     Erl_Tupl : Erl_Types a -> Erl_Types b -> Erl_Types (a,b)
     -- These have to come last
@@ -41,11 +47,22 @@ FFI_Erl = MkFFI Erl_Types String String
 EIO : Type -> Type
 EIO = IO' FFI_Erl
 
--- Annoyingly, the File struct isn't abstract so we can't use it.
+-- Annoyingly, the File struct is abstract so we can't use it. I guess
+-- this helps prevent people mixing the two kinds of files... not that
+-- it would even be possible.
 abstract
 data EFile = EHandle Ptr
 
 namespace Erl
+  stdin : EFile
+  stdin = EHandle prim__stdin
+
+  stdout : EFile
+  stdout = EHandle prim__stdout
+
+  stderr : EFile
+  stderr = EHandle prim__stderr
+
   openFile : String -> Mode -> EIO EFile
   openFile filename mode = do p <- open filename (modeStr mode)
                               return (EHandle p)
@@ -65,8 +82,16 @@ namespace Erl
           close = foreign FFI_Erl "idris_erlang_rts:file_close" (Ptr -> EIO Int)
 
 
+  fgetc' : EFile -> EIO (Maybe Char)
+  fgetc' (EHandle h) = do c <- getChar h
+                          if (c < 0)
+                          then return Nothing
+                          else return (Just (cast c))
+    where getChar : Ptr -> EIO Int
+          getChar = foreign FFI_Erl "idris_erlang_rts:read_chr" (Ptr -> EIO Int)
+
   fgetc : EFile -> EIO Char
-  fgetc (EHandle p) = do c <- getChar p
+  fgetc (EHandle h) = do c <- getChar h
                          return (cast c)
     where getChar : Ptr -> EIO Int
           getChar = foreign FFI_Erl "idris_erlang_rts:read_chr" (Ptr -> EIO Int)
@@ -83,11 +108,23 @@ namespace Erl
           writeFile = foreign FFI_Erl "idris_erlang_rts:write_file" (Ptr -> String -> EIO Int)
 
   feof : EFile -> EIO Bool
-  feof (EHandle p) = do res <- fileEOF p
+  feof (EHandle h) = do res <- fileEOF h
                         return (res /= 0)
     where fileEOF : Ptr -> EIO Int
           fileEOF = foreign FFI_Erl "idris_erlang_rts:file_eof" (Ptr -> EIO Int)
 
+  fflush : EFile -> EIO ()
+  fflush (EHandle h) = do fileFlush h
+                          return ()
+    where fileFlush : Ptr -> EIO Int
+          fileFlush = foreign FFI_Erl "idris_erlang_rts:file_flush" (Ptr -> EIO Int)
+
+
+  putChar : Char -> EIO ()
+  putChar c = putStr (singleton c)
+
+  getChar : EIO Char
+  getChar = fgetc stdin
 
   nullStr : String -> EIO Bool
   nullStr s = do res <- strIsNull s
@@ -102,8 +139,33 @@ namespace Erl
     where isNull : Ptr -> EIO Int
           isNull = foreign FFI_Erl "idris_erlang_rts:ptr_null" (Ptr -> EIO Int)
 
-string_to_atom : String -> EIO Atom
-string_to_atom = foreign FFI_Erl "list_to_atom" (String -> EIO Atom)
+  eqPtr : Ptr -> Ptr -> EIO Bool
+  eqPtr x y = do res <- ptrIsEq x y
+                 return (res /= 0)
+    where ptrIsEq : Ptr -> Ptr -> EIO Int
+          ptrIsEq = foreign FFI_Erl "idris_erlang_rts:ptr_eq" (Ptr -> Ptr -> EIO Int)
+
+  validFile : EFile -> EIO Bool
+  validFile (EHandle h) = do res <- nullPtr h
+                             return (not res)
+
+  partial
+  readFile : String -> EIO String
+  readFile fn = do f <- openFile fn Read
+                   c <- readFile' f ""
+                   closeFile f
+                   return c
+    where
+      partial
+      readFile' : EFile -> String -> EIO String
+      readFile' f contents = do res <- feof f
+                                if (not res)
+                                then do l <- fread f
+                                        readFile' f (contents ++ l)
+                                else return contents
+
+atom : String -> EIO Atom
+atom = foreign FFI_Erl "list_to_atom" (String -> EIO Atom)
 
 lists_reverse : List Int -> EIO (List Int)
 lists_reverse = foreign FFI_Erl "lists:reverse" (List Int -> EIO (List Int))

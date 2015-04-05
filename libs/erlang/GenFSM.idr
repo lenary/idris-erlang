@@ -8,20 +8,28 @@ import Parameterised
 -- For Atoms and Pids
 import ErlPrelude
 
-data GFL : (s:Type) -> (cl:Type) -> (cl -> s -> Type) -> Type -> Type where
-  MkGFL : (s:Type) -> (cl:Type) -> (cr:(cl -> s -> Type)) -> (ct:Type) -> GFL s cl cr ct
+data GFL : (st:Type) -> (se:Type) -> (se -> st -> Type) -> Type -> Type where
+  MkGFL : (st:Type) -> (se:Type) -> (ser:(se -> st -> Type)) -> (e:Type) -> GFL st se ser e
 
-data GFRef : (l:GFL _ _ _ _) -> Type where
+data GFRef : (GFL _ _ _ _) -> Type where
   MkGFRef : {l:GFL _ _ _ _} -> ErlPid -> GFRef l
 
-
 data GFCommands : Type where
-  SendCall : {l':GFL _ cl cr _} -> GFRef l' -> cl -> GFCommands
-  SendCast : {l':GFL _ _  _ ct} -> GFRef l' -> ct -> GFCommands
+  SendEvent :     {l':GFL _ _ _ e}  -> GFRef l' -> e  -> GFCommands
+  SendSyncEvent : {l':GFL _ se _ _} -> GFRef l' -> se -> GFCommands
+
+  -- Eventually it would be good to support these two too, but given they
+  -- have the same type, they don't add anything to the implementation
+  --
+  -- SendAllEvent : {l':GFL _ _ _ e} -> GFRef l' -> e -> GFCommands
+  -- SendAllSyncEvent : {l':GFL _ se _ _} -> GFRef l' -> se -> GFCommands
+
+data GFSyncResp : (GFL _ se _ _) -> (e:se) -> Type where
+  MkSyncResp : {l:GFL st se ser _} -> {e:se} -> (s : st) -> (r:ser e s) -> GFSyncResp l e
 
 GFResponses : GFCommands -> Type
-GFResponses (SendCall (MkGFRef {l=MkGFL s _ cr _} _) m) = (s' : s ** cr m s')
-GFResponses (SendCast _ m) = Unit
+GFResponses (SendSyncEvent (MkGFRef {l} _) e) = GFSyncResp l e
+GFResponses (SendEvent _ _) = Unit
 
 GFWorld : IWorld GFCommands GFResponses
 GFWorld = MkIWorld GFCommands GFResponses
@@ -30,74 +38,69 @@ GFP : Type -> Type
 GFP = PIO GFWorld
 
 
+
 namespace Init
-  data GFInitDone : (GFL s _ _ _) -> Type -> Type where
-    GFInitOK : st -> GFInitDone st
-    GFInitStop : ErlAtom -> GFInitDone st
-{-
-  ok : st -> GFP (GFInitDone st)
-  ok s = leaf (GFInitOK s)
+  data GFInitDone : (GFL _ _ _ _) -> Type -> Type where
+    GFInitOK : {l:GFL st _ _ _} -> (s:st) -> sd -> GFInitDone l sd
+    GFInitStop : Atom -> GFInitDone l sd
 
-  stop : ErlAtom -> GFP (GFInitDone st)
+  ok : {l:GFL s _ _ _} -> s -> sd -> GFP (GFInitDone l sd)
+  ok s sd = leaf (GFInitOK s sd)
+
+  stop : Atom -> GFP (GFInitDone l sd)
   stop a = leaf (GFInitStop a)
--}
 
-{-
-namespace Call
-  data GFCallDone : (GFL cl _ _) -> Type -> cl -> Type where
-    -- We need to supply the message we're replying to, to make sure our response has the right type.
-    GFReply : {l:GFL cl cr _} -> {c:cl} -> (cr c) -> st -> GFCallDone l st c
-    GFReplyStop : {l:GFL cl cr _} -> {c:cl} -> ErlAtom -> (cr c) -> st -> GFCallDone l st c
 
-{-
-  reply : {l:GFL cl cr _} -> {c:cl} -> (cr c) -> st -> GFP (GFCallDone l st c)
-  reply r s = leaf (GFReply r s)
+namespace Event
+  data GFEventDone : (GFL _ _ _ _) -> Type -> Type where
+    GFNextState : {l:GFL st _ _ _} -> (s:st) -> sd -> GFEventDone l sd
+    GFEventStop : Atom -> sd -> GFEventDone l sd
 
-  stop : {l:GFL cl cr _} -> {c:cl} -> ErlAtom -> (cr c) -> st -> GFP (GFCallDone l st c)
-  stop a r s = leaf (GFReplyStop a r s)
--}
+  next_state : {l:GFL st _ _ _} -> (s:st) -> sd -> GFP (GFEventDone l sd)
+  next_state s sd = leaf (GFNextState s sd)
 
-namespace Cast
-  data GFCastDone : Type -> Type where
-    GFNoReply : st -> GFCastDone st
-    GFNoReplyStop : ErlAtom -> st -> GFCastDone st
+  stop : Atom -> sd -> GFP (GFEventDone l sd)
+  stop a sd = leaf (GFEventStop a sd)
 
-{-
-  no_reply : st -> GFP (GFCastDone st)
-  no_reply s = leaf (GFNoReply s)
 
-  stop : ErlAtom -> st -> GFP (GFCastDone st)
-  stop a s = leaf (GFNoReplyStop a s)
--}
+namespace SyncEvent
+  data GFSyncEventDone : (GFL st se ser _) -> st -> se -> Type -> Type where
+    GFSyncReply : {l:GFL st se ser _} -> {c:st} -> {e:se} -> (r:ser e c) -> st -> sd -> GFSyncEventDone l c e sd
+    GFSyncStop : Atom -> sd -> GFSyncEventDone l c e sd
 
-data GF : (GFL _ _ _) -> Type -> Type -> Type where
-  MkGF : {l:GFL cl cr ct} ->
-         (init : i -> GFP (GFInitDone st)) ->
-         (handle_call : (c:cl) -> st -> GFP (GFCallDone l st c)) ->
-         (handle_cast : ct -> st -> GFP (GFCastDone st)) ->
-         (terminate : ErlAtom -> st -> GFP ()) ->
-         GF l st i
+  reply : {l:GFL st se ser _} -> {c:st} -> {e:se} -> (ser e c) -> st -> sd -> GFP (GFSyncEventDone l c e sd)
+  reply r st sd = leaf (GFSyncReply r st sd)
 
--- I can't fill in the implementation as it's a foreign call to erlang
+  stop : Atom -> sd -> GFP (GFSyncEventDone l c e sd)
+  stop a sd = leaf (GFSyncStop a sd)
+
+data GF : (GFL _ _ _ _) -> Type -> Type -> Type where
+  MkGF : {l:GFL st se ser e} ->
+         (init : i -> GFP (GFInitDone l sd)) ->
+         (state_event : st -> e -> sd -> GFP (GFEventDone l sd)) ->
+         (state_sync_event : (s:st) -> (e:se) -> sd -> GFP (GFSyncEventDone l s e sd)) ->
+         (terminate : Atom -> sd -> GFP ()) ->
+         GF l sd i
+
+
 spawn : (GF l _ i) -> i -> GFRef l
-spawn gs init = ?spawn_impl
+spawn gf init = ?spawn_impl
 
--- This is how we specify a "Language" that a GenServer uses to
--- communicate, In this example, a simple echo server, it just
--- responds to a call with the same type that it recieved.
-echoL : {a:Type} -> GFL a (\_ => a) ()
-echoL {a} = MkGFL a (\_ => a) ()
+-- This is how we specify a "Language" that a GenFSM uses to
+-- communicate, In this example it's a simple switch that specifies
+-- whether the fsm will reply with a String or an Int.
 
--- And here's our implementation of the server with language echoL
-echoGF : GF echoL () ()
-echoGF = MkGF i hcl hct t
-  where
-    -- Init function: just put () into the state
-    i _ = ok ()
-    -- Handle Call: reply with the message you got, preserving the state
-    hcl x s = reply x s
-    -- Handle Cast: do nothing, preserve state
-    hct _ s = no_reply s
-    -- Terminate: do nothing, return ()
-    t _ _ = leaf ()
--}
+computeReply : (Unit -> Bool -> Type)
+computeReply _ True = Integer
+computeReply _ False = String
+
+flipperL : GFL Bool Unit (computeReply) Unit
+flipperL = MkGFL Bool Unit computeReply Unit
+
+flipperF : GF flipperL () ()
+flipperF = MkGF i hse hsse t
+  where i _ = ok True ()
+        hse state () dat = next_state (not state) dat
+        hsse True () dat = reply 87 True dat
+        hsse False () dat = reply "87 Rules!" True dat
+        t _ _ = leaf ()

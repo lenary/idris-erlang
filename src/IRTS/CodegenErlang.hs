@@ -19,12 +19,8 @@ import           System.Exit (exitSuccess,exitFailure)
 
 import           Paths_idris_erlang (getDataFileName)
 
--- TODO: Foreign Functions
 -- TODO: Exports
--- TODO: Constructor reuse
--- TODO: Case Statements
 -- TODO: Constructors as Records?
--- TODO:
 
 -- Everything happens in here. I think. Wait, no, everything actually
 -- happens in `generateErl`. This is just a bit of glue code.
@@ -278,6 +274,7 @@ generateCaseAlt (DDefaultCase expr)         = do expr' <- inScope $ generateExp 
 
 -- Foreign Calls
 generateForeign :: FDesc -> FDesc -> [(FDesc,DExp)] -> ErlCG String
+generateForeign _ (FStr "list_to_atom") [(_,Str s)] = return $ strAtom s
 generateForeign ret (FStr nm) args = do args' <- mapM (generateExp . snd) args
                                         return $ nm ++ "("++ (", " `intercalate` args') ++")"
 
@@ -413,8 +410,8 @@ generatePrim (LAppendBuffer)  _    = throwError "Buffers not supported"
 generatePrim (LAppend _ _)    _    = throwError "Buffers not supported"
 generatePrim (LPeek _ _)      _    = throwError "Buffers not supported"
 
-generatePrim (LFork)          _    = throwError "Fork not supported" -- TODO: Fork
-generatePrim (LPar)          [x]   = return x
+generatePrim (LFork)         [e]   = return $ "spawn(fun() -> "++ e ++")"
+generatePrim (LPar)          [e]   = return e
 
 generatePrim (LNullPtr)       _    = return $ "undefined"
 generatePrim (LVMPtr)         _    = return $ "undefined"

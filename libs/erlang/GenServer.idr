@@ -9,7 +9,7 @@ import Parameterised
 import ErlPrelude
 
 data GSL : (cl:Type) -> (cl -> Type) -> Type -> Type where
-  MkGSL : (cl:Type) -> (cr:cl -> Type) -> (ct:Type) -> GSL cl cr ct
+  MkGSL : (cl:Type) -> (cr:(cl -> Type)) -> (ct:Type) -> GSL cl cr ct
 
 data GSRef : (l:GSL _ _ _) -> Type where
   MkGSRef : {l:GSL _ _ _} -> ErlPid -> GSRef l
@@ -31,35 +31,35 @@ GSP = PIO GSWorld
 namespace Init
   data GSInitDone : Type -> Type where
     GSInitOK : st -> GSInitDone st
-    GSInitStop : ErlAtom -> GSInitDone st
+    GSInitStop : Atom -> GSInitDone st
 
   ok : st -> GSP (GSInitDone st)
   ok s = leaf (GSInitOK s)
 
-  stop : ErlAtom -> GSP (GSInitDone st)
+  stop : Atom -> GSP (GSInitDone st)
   stop a = leaf (GSInitStop a)
 
 namespace Call
   data GSCallDone : (GSL cl _ _) -> Type -> cl -> Type where
     -- We need to supply the message we're replying to, to make sure our response has the right type.
     GSReply : {l:GSL cl cr _} -> {c:cl} -> (cr c) -> st -> GSCallDone l st c
-    GSReplyStop : {l:GSL cl cr _} -> {c:cl} -> ErlAtom -> (cr c) -> st -> GSCallDone l st c
+    GSReplyStop : {l:GSL cl cr _} -> {c:cl} -> Atom -> (cr c) -> st -> GSCallDone l st c
 
   reply : {l:GSL cl cr _} -> {c:cl} -> (cr c) -> st -> GSP (GSCallDone l st c)
   reply r s = leaf (GSReply r s)
 
-  stop : {l:GSL cl cr _} -> {c:cl} -> ErlAtom -> (cr c) -> st -> GSP (GSCallDone l st c)
+  stop : {l:GSL cl cr _} -> {c:cl} -> Atom -> (cr c) -> st -> GSP (GSCallDone l st c)
   stop a r s = leaf (GSReplyStop a r s)
 
 namespace Cast
   data GSCastDone : Type -> Type where
     GSNoReply : st -> GSCastDone st
-    GSNoReplyStop : ErlAtom -> st -> GSCastDone st
+    GSNoReplyStop : Atom -> st -> GSCastDone st
 
   no_reply : st -> GSP (GSCastDone st)
   no_reply s = leaf (GSNoReply s)
 
-  stop : ErlAtom -> st -> GSP (GSCastDone st)
+  stop : Atom -> st -> GSP (GSCastDone st)
   stop a s = leaf (GSNoReplyStop a s)
 
 data GS : (GSL _ _ _) -> Type -> Type -> Type where
@@ -67,7 +67,7 @@ data GS : (GSL _ _ _) -> Type -> Type -> Type where
          (init : i -> GSP (GSInitDone st)) ->
          (handle_call : (c:cl) -> st -> GSP (GSCallDone l st c)) ->
          (handle_cast : ct -> st -> GSP (GSCastDone st)) ->
-         (terminate : ErlAtom -> st -> GSP ()) ->
+         (terminate : Atom -> st -> GSP ()) ->
          GS l st i
 
 -- I can't fill in the implementation as it's a foreign call to erlang

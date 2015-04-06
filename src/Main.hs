@@ -11,8 +11,6 @@ import IRTS.CodegenErlang
 import System.Environment
 import System.Exit
 
--- TODO: --path gives path to erlang files.
-
 import Paths_idris_erlang
 
 data Opts = Opts { inputs :: [FilePath],

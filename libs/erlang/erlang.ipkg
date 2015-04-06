@@ -3,6 +3,6 @@ package erlang
 opts = "--total"
 
 modules = ErlPrelude,
-          GenServer, GenFSM,
+          GenServer, GenFSM, GenEvent,
           Parameterised,
           Process

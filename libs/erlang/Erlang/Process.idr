@@ -47,8 +47,8 @@ self = do pid <- lift $ self'
   where self' : EIO Ptr
         self' = foreign FFI_Erl "self" (EIO Ptr)
 
-spawn : Process l () -> EIO (ProcRef l)
-spawn (MkProc p) = do p <- fork p
+spawn : Process l () -> Process l' (ProcRef l)
+spawn (MkProc p) = do p <- lift $ fork p
                       return $ MkProcRef p
 
 receive_from : ProcRef l' -> Process l l

@@ -6,7 +6,7 @@
 -export([floor/1, ceil/1]).
 -export([bool_cast/1]).
 -export([str_index/2, str_null/1]).
--export([ptr_null/1, ptr_eq/2]).
+-export([ptr_null/1, ptr_eq/2, register_ptr/2]).
 
 -export([write_str/1, write_file/2, read_str/0, read_file/1, read_chr/1]).
 -export([file_open/2, file_close/1, file_flush/1, file_eof/1]).
@@ -69,6 +69,10 @@ ptr_null(_) ->
 -spec ptr_eq(any(), any()) -> idr_bool().
 ptr_eq(A,B) ->
     bool_cast(A =:= B).
+
+-spec register_ptr(any(), integer()) -> any().
+register_ptr(Ptr, _Length) ->
+    Ptr.
 
 
 %% IO Things. Mostly files, maybe some ports

@@ -39,8 +39,17 @@ rpc : ProcRef l' -> l' -> Process l l
 rpc p req = do tag <- rpc_send_req p req
                rpc_recv_rep tag
 
-handle_one_rpc : (l -> Process l (l',t)) -> Process l t
-handle_one_rpc f = do (tag,req) <- rpc_recv_req
-                      (rep,next) <- f req
-                      rpc_send_rep tag rep
-                      return next
+handle_rpc : (l -> Process l (l',t)) -> Process l t
+handle_rpc f = do (tag,req) <- rpc_recv_req
+                  (rep,next) <- f req
+                  rpc_send_rep tag rep
+                  return next
+
+
+partial
+handle_rpc_loop : (st -> l -> Process l (l',st)) -> st -> Process l ()
+handle_rpc_loop f init = handle_rpc (f init) >>= handle_rpc_loop f
+
+partial
+spawn_rpc : (st -> l -> Process l (l',st)) -> st -> Process l'' (ProcRef l)
+spawn_rpc f init = spawn $ handle_rpc_loop f init

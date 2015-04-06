@@ -274,7 +274,7 @@ generateCaseAlt (DDefaultCase expr)         = do expr' <- inScope $ generateExp 
 
 -- Foreign Calls
 generateForeign :: FDesc -> FDesc -> [(FDesc,DExp)] -> ErlCG String
-generateForeign _ (FStr "list_to_atom") [(_,Str s)] = return $ strAtom s
+generateForeign _ (FStr "list_to_atom") [(_,DConst (Str s))] = return $ strAtom s
 generateForeign ret (FStr nm) args = do args' <- mapM (generateExp . snd) args
                                         return $ nm ++ "("++ (", " `intercalate` args') ++")"
 
@@ -294,7 +294,7 @@ generateForeign ret (FStr nm) args = do args' <- mapM (generateExp . snd) args
 -- easier to assume all strings are full of printables, if they're
 -- constant.
 generateConst :: Const -> ErlCG String
-generateConst c | constIsType c = throwError $ "Erlang Backend Can't Generate Types (from Constant "++ show c ++")"
+generateConst c | constIsType c = return $ strAtom (show c)
 generateConst (I i)   = return $ show i
 generateConst (BI i)  = return $ show i
 generateConst (B8 w)  = return $ show w
@@ -380,10 +380,6 @@ generatePrim (LFFloor)       [x]   = return $ erlCallIRTS "ceil" [x]
 generatePrim (LFCeil)        [x]   = return $ erlCallIRTS "floor" [x]
 generatePrim (LFNegate)      [x]   = return $ "-" ++ x
 
-generatePrim (LMkVec _ _)     _    = throwError "Vector Primitives Not Supported in Erlang"
-generatePrim (LIdxVec _ _)    _    = throwError "Vector Primitives Not Supported in Erlang"
-generatePrim (LUpdateVec _ _) _    = throwError "Vector Primitives Not Supported in Erlang"
-
 generatePrim (LStrHead)      [x]   = return $ erlCall "hd" [x]
 generatePrim (LStrTail)      [x]   = return $ erlCall "tl" [x]
 generatePrim (LStrCons)      [x,y] = return $ "["++x++"|"++y++"]"
@@ -395,29 +391,31 @@ generatePrim (LStrEq)        [x,y] = return $ erlBoolOp "=:=" x y
 generatePrim (LStrLen)       [x]   = return $ erlCall "length" [x]
 
 generatePrim (LReadStr)      [_]     = return $ erlCallIRTS "read_str" []
-generatePrim (LReadFile)     [_,h]   = return $ erlCallIRTS "read_file" [h]
 generatePrim (LWriteStr)     [_,s]   = return $ erlCallIRTS "write_str" [s]
-generatePrim (LWriteFile)    [_,h,s] = return $ erlCallIRTS "write_file" [h,s]
-
-generatePrim (LStdIn)         _    = return $ "standard_io"
-generatePrim (LStdOut)        _    = return $ "standard_io"
-generatePrim (LStdErr)        _    = return $ "standard_error"
 
 generatePrim (LSystemInfo)    _    = throwError "System Info not supported" -- TODO
 
-generatePrim (LAllocate)      _    = throwError "Buffers not supported"
-generatePrim (LAppendBuffer)  _    = throwError "Buffers not supported"
-generatePrim (LAppend _ _)    _    = throwError "Buffers not supported"
-generatePrim (LPeek _ _)      _    = throwError "Buffers not supported"
-
-generatePrim (LFork)         [e]   = return $ "spawn(fun() -> "++ e ++")"
+generatePrim (LFork)         [e]   = return $ "spawn(fun() -> 'EVAL0'("++ e ++") end)"
 generatePrim (LPar)          [e]   = return e
 
-generatePrim (LNullPtr)       _    = return $ "undefined"
-generatePrim (LVMPtr)         _    = return $ "undefined"
+generatePrim (LExternal nm)  args  = generateExternalPrim nm args
 
 generatePrim p a = do liftIO . putStrLn $ "No Primitive: " ++ show p ++ " on " ++ show (length a) ++ " args."
                       throwError "generatePrim: Unknown Op, or incorrect arity"
+
+
+generateExternalPrim :: Name -> [String] -> ErlCG String
+generateExternalPrim nm _ | nm == sUN "prim__stdin"  = return $ "standard_io"
+                          | nm == sUN "prim__stdout" = return $ "standard_io"
+                          | nm == sUN "prim__stderr" = return $ "standard_io"
+                          | nm == sUN "prim__vm"     = return $ "undefined"
+                          | nm == sUN "prim__null"   = return $ "undefined"
+generateExternalPrim nm [_,h]   | nm == sUN "prim__readFile"  = return $ erlCallIRTS "read_file" [h]
+generateExternalPrim nm [_,h,s] | nm == sUN "prim__writeFile" = return $ erlCallIRTS "write_file" [h,s]
+generateExternalPrim nm [p,l] | nm == sUN "prim__registerPtr" = return $ erlCallIRTS "register_ptr" [p,l]
+generateExternalPrim nm args = do liftIO . putStrLn $ "Unknown External Primitive: " ++ show nm ++ " on " ++ show (length args) ++ "args."
+                                  throwError "generatePrim: Unknown External Primitive"
+
 
 
 erlBinOp :: String -> String -> String -> String

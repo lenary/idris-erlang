@@ -1,9 +1,9 @@
-module GenFSM
+module OTP.GenFSM
 
 -- This gives us IWorld and PIO, which are from the paper "Interactive
 -- Programs for Dependent Type Theory" by Hancock and Seltzer. They
 -- are non-normalising, but do the job.
-import Parameterised
+import OTP.Parameterised
 
 -- For Atoms and Pids
 import ErlPrelude

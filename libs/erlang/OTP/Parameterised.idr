@@ -1,4 +1,4 @@
-module Parameterised
+module OTP.Parameterised
 
 import Control.Monad.Identity
 import Control.Monad.State

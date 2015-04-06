@@ -1,6 +1,6 @@
-module GenEvent
+module OTP.GenEvent
 
-import Parameterised
+import OTP.Parameterised
 
 import ErlPrelude
 

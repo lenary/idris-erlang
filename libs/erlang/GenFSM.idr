@@ -37,7 +37,11 @@ GFWorld = MkIWorld GFCommands GFResponses
 GFP : Type -> Type
 GFP = PIO GFWorld
 
+send_event : {l:GFL _ _ _ e} -> GFRef l -> e -> GFP Unit
+send_event p e = interact (SendEvent p e)
 
+--sync_send_event : {l:GFL _ se ser _} -> GFRef l -> (e:se) -> GFP (GFSyncResp l e)
+--sync_send_event p e = interact (SendSyncEvent p e)
 
 namespace Init
   data GFInitDone : (GFL _ _ _ _) -> Type -> Type where
@@ -45,10 +49,10 @@ namespace Init
     GFInitStop : Atom -> GFInitDone l sd
 
   ok : {l:GFL s _ _ _} -> s -> sd -> GFP (GFInitDone l sd)
-  ok s sd = leaf (GFInitOK s sd)
+  ok s sd = return (GFInitOK s sd)
 
   stop : Atom -> GFP (GFInitDone l sd)
-  stop a = leaf (GFInitStop a)
+  stop a = return (GFInitStop a)
 
 
 namespace Event
@@ -57,10 +61,10 @@ namespace Event
     GFEventStop : Atom -> sd -> GFEventDone l sd
 
   next_state : {l:GFL st _ _ _} -> (s:st) -> sd -> GFP (GFEventDone l sd)
-  next_state s sd = leaf (GFNextState s sd)
+  next_state s sd = return (GFNextState s sd)
 
   stop : Atom -> sd -> GFP (GFEventDone l sd)
-  stop a sd = leaf (GFEventStop a sd)
+  stop a sd = return (GFEventStop a sd)
 
 
 namespace SyncEvent
@@ -69,10 +73,10 @@ namespace SyncEvent
     GFSyncStop : Atom -> sd -> GFSyncEventDone l c e sd
 
   reply : {l:GFL st se ser _} -> {c:st} -> {e:se} -> (ser e c) -> st -> sd -> GFP (GFSyncEventDone l c e sd)
-  reply r st sd = leaf (GFSyncReply r st sd)
+  reply r st sd = return (GFSyncReply r st sd)
 
   stop : Atom -> sd -> GFP (GFSyncEventDone l c e sd)
-  stop a sd = leaf (GFSyncStop a sd)
+  stop a sd = return (GFSyncStop a sd)
 
 data GF : (GFL _ _ _ _) -> Type -> Type -> Type where
   MkGF : {l:GFL st se ser e} ->
@@ -103,4 +107,4 @@ flipperF = MkGF i hse hsse t
         hse state () dat = next_state (not state) dat
         hsse True () dat = reply 87 True dat
         hsse False () dat = reply "87 Rules!" True dat
-        t _ _ = leaf ()
+        t _ _ = return ()

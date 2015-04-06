@@ -8,30 +8,30 @@ data IWorld : (t:Type) -> (t -> Type) -> Type where
 
 -- Parameterised over an implicit world
 codata PIO : (w : IWorld _ _) -> Type -> Type where
-  leaf : a -> PIO w a
-  cont : {w : IWorld cs r} -> (c : cs) -> (r c -> Inf (PIO w a)) -> PIO w a
+  Leaf : a -> PIO w a
+  Cont : {w : IWorld cs r} -> (c : cs) -> (r c -> Inf (PIO w a)) -> PIO w a
 
 interact : {w : IWorld cs rs} -> (c : cs) -> PIO w (rs c)
-interact c = cont c (\r => leaf r)
+interact c = Cont c (\r => Leaf r)
 
 instance Functor (PIO w) where
-  map m (leaf x)     = leaf (m x)
-  map m (cont ca pa) = cont ca (\ra => map m (pa ra))
+  map m (Leaf x)     = Leaf (m x)
+  map m (Cont ca pa) = Cont ca (\ra => map m (pa ra))
 
 instance Applicative (PIO w) where
-  pure = leaf
+  pure = Leaf
 
-  (leaf f)     <*> x = map f x
-  (cont cf pf) <*> x = cont cf (\rf => pf rf <*> x)
+  (Leaf f)     <*> x = map f x
+  (Cont cf pf) <*> x = Cont cf (\rf => pf rf <*> x)
 
 instance Monad (PIO w) where
-  (leaf a)     >>= f = f a
-  (cont ca pa) >>= f = cont ca (\ra => pa ra >>= f)
+  (Leaf a)     >>= f = f a
+  (Cont ca pa) >>= f = Cont ca (\ra => pa ra >>= f)
 
 partial
 repeat : {w : IWorld cs rs} -> a -> (a -> PIO w (Either b a)) -> PIO w b
 repeat init p = (p init) >>= q
-  where q (Left b) = leaf b
+  where q (Left b) = Leaf b
         q (Right a) = repeat a p
 
 partial
@@ -46,8 +46,8 @@ redirect : {w : IWorld cs rs} ->
            PIO w a ->
            ((c:cs) -> PIO w' (rs c)) ->
            PIO w' a
-redirect (leaf x) q = leaf x
-redirect (cont c p) q = do qc <- q c
+redirect (Leaf x) q = Leaf x
+redirect (Cont c p) q = do qc <- q c
                            redirect (p qc) q
 
 namespace RWExample
@@ -75,10 +75,10 @@ namespace RWExample
 
   partial
   execute : PIO MyWorld a -> IO a
-  execute (leaf x) = return x
-  execute (cont (Write x) p) = do putStrLn x
+  execute (Leaf x) = return x
+  execute (Cont (Write x) p) = do putStrLn x
                                   execute (p ())
-  execute (cont Read p) = do s <- getLine
+  execute (Cont Read p) = do s <- getLine
                              execute (p s)
 
 
@@ -98,6 +98,6 @@ namespace StateExample
 
   partial
   execute : PIO (StateWorld s) a  -> State s a
-  execute (leaf x)         = return x
-  execute (cont Get p)     = execute (p !get)
-  execute (cont (Put x) p) = execute (p !(put x))
+  execute (Leaf x)         = return x
+  execute (Cont Get p)     = execute (p !get)
+  execute (Cont (Put x) p) = execute (p !(put x))

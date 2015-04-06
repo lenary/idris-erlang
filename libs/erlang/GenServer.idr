@@ -11,16 +11,16 @@ import ErlPrelude
 data GSL : (cl:Type) -> (cl -> Type) -> Type -> Type where
   MkGSL : (cl:Type) -> (cr:(cl -> Type)) -> (ct:Type) -> GSL cl cr ct
 
-data GSRef : (l:GSL _ _ _) -> Type where
-  MkGSRef : {l:GSL _ _ _} -> ErlPid -> GSRef l
+data GSRef : (GSL _ _ _) -> Type where
+  MkGSRef : ErlPid -> GSRef l
 
 data GSCommands : Type where
-  SendCall : {l':GSL cl cr _} -> GSRef l' -> cl -> GSCommands
-  SendCast : {l':GSL _ _  ct} -> GSRef l' -> ct -> GSCommands
+  SendCall : {l:GSL cl cr _} -> GSRef l -> cl -> GSCommands
+  SendCast : {l:GSL _ _  ct} -> GSRef l -> ct -> GSCommands
 
 GSResponses : GSCommands -> Type
 GSResponses (SendCall (MkGSRef {l=MkGSL _ cr _} _) m) = cr m
-GSResponses (SendCast _ m) = Unit
+GSResponses (SendCast _ _) = Unit
 
 GSWorld : IWorld GSCommands GSResponses
 GSWorld = MkIWorld GSCommands GSResponses
@@ -28,16 +28,22 @@ GSWorld = MkIWorld GSCommands GSResponses
 GSP : Type -> Type
 GSP = PIO GSWorld
 
+-- call : {l:GSL cl cr _} -> GSRef l -> (m:cl) -> GSP (cr m)
+-- call p m = interact (SendCall p m)
+
+cast : {l:GSL _ _ ct} -> GSRef l -> ct -> GSP Unit
+cast p m = interact (SendCast p m)
+
 namespace Init
   data GSInitDone : Type -> Type where
     GSInitOK : st -> GSInitDone st
     GSInitStop : Atom -> GSInitDone st
 
   ok : st -> GSP (GSInitDone st)
-  ok s = leaf (GSInitOK s)
+  ok s = return (GSInitOK s)
 
   stop : Atom -> GSP (GSInitDone st)
-  stop a = leaf (GSInitStop a)
+  stop a = return (GSInitStop a)
 
 namespace Call
   data GSCallDone : (GSL cl _ _) -> Type -> cl -> Type where
@@ -46,10 +52,10 @@ namespace Call
     GSReplyStop : {l:GSL cl cr _} -> {c:cl} -> Atom -> (cr c) -> st -> GSCallDone l st c
 
   reply : {l:GSL cl cr _} -> {c:cl} -> (cr c) -> st -> GSP (GSCallDone l st c)
-  reply r s = leaf (GSReply r s)
+  reply r s = return (GSReply r s)
 
   stop : {l:GSL cl cr _} -> {c:cl} -> Atom -> (cr c) -> st -> GSP (GSCallDone l st c)
-  stop a r s = leaf (GSReplyStop a r s)
+  stop a r s = return (GSReplyStop a r s)
 
 namespace Cast
   data GSCastDone : Type -> Type where
@@ -57,10 +63,10 @@ namespace Cast
     GSNoReplyStop : Atom -> st -> GSCastDone st
 
   no_reply : st -> GSP (GSCastDone st)
-  no_reply s = leaf (GSNoReply s)
+  no_reply s = return (GSNoReply s)
 
   stop : Atom -> st -> GSP (GSCastDone st)
-  stop a s = leaf (GSNoReplyStop a s)
+  stop a s = return (GSNoReplyStop a s)
 
 data GS : (GSL _ _ _) -> Type -> Type -> Type where
   MkGS : {l:GSL cl cr ct} ->
@@ -91,4 +97,4 @@ echoGS = MkGS i hcl hct t
     -- Handle Cast: do nothing, preserve state
     hct _ s = no_reply s
     -- Terminate: do nothing, return ()
-    t _ _ = leaf ()
+    t _ _ = return ()

@@ -100,7 +100,6 @@ namespace Erl
   fread : EFile -> EIO String
   fread (EHandle h) = prim_fread h
 
-  -- TODO: primitives
   fwrite : EFile -> String -> EIO ()
   fwrite (EHandle h) s = do writeFile h s
                             return ()

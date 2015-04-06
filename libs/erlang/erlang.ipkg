@@ -5,4 +5,4 @@ opts = "--total"
 modules = ErlPrelude,
           GenServer, GenFSM, GenEvent,
           Parameterised,
-          Process
+          Erlang.Process, Erlang.RPC

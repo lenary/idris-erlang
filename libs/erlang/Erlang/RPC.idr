@@ -45,7 +45,6 @@ handle_rpc f = do (tag,req) <- rpc_recv_req
                   rpc_send_rep tag rep
                   return next
 
-
 partial
 handle_rpc_loop : (st -> l -> Process l (l',st)) -> st -> Process l ()
 handle_rpc_loop f init = handle_rpc (f init) >>= handle_rpc_loop f

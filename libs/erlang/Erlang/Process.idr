@@ -7,8 +7,9 @@ data ProcRef : Type -> Type where
   MkProcRef : Ptr -> ProcRef l
 
 -- Process l is a process that receives messages of type l.
-data Process : Type -> Type* -> Type where
+data Process : (l:Type) -> Type* -> Type where
   MkProc : (EIO a) -> Process l a
+
 
 lift : EIO a -> Process l a
 lift = MkProc
@@ -57,14 +58,14 @@ receive_from (MkProcRef p) = do (MkERaw rec) <- lift $ receive_from' p
   where receive_from' : Ptr -> EIO (ErlRaw l)
         receive_from' = foreign FFI_Erl "idris_erlang_conc:receive_from" (Ptr -> EIO (ErlRaw l))
 
-receive_with_from : Process l (UPair (ProcRef l') l)
+receive_with_from : Process l (ProcRef l',l)
 receive_with_from = do (p,MkERaw rec) <- lift $ receive_with_from'
                        return (MkProcRef p,rec)
   where receive_with_from' : EIO (Ptr, ErlRaw l)
         receive_with_from' = foreign FFI_Erl "idris_erlang_conc:receive_any" (EIO (Ptr,ErlRaw l))
 
 receive : Process l l
-receive = do (MkUPair _ msg) <- receive_with_from
+receive = do (_, msg) <- receive_with_from
              return msg
 
 send : ProcRef l' -> l' -> Process l ()

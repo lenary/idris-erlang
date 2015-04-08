@@ -15,8 +15,8 @@ data GFRef : (GFL _ _ _ _) -> Type where
   MkGFRef : {l:GFL _ _ _ _} -> ErlPid -> GFRef l
 
 data GFCommands : Type where
-  SendEvent :     {l':GFL _ _ _ e}  -> GFRef l' -> e  -> GFCommands
-  SendSyncEvent : {l':GFL _ se _ _} -> GFRef l' -> se -> GFCommands
+  SendEvent :     {l:GFL _ _ _ e}  -> GFRef l -> e  -> GFCommands
+  SendSyncEvent : {l:GFL _ se _ _} -> GFRef l -> se -> GFCommands
 
   -- Eventually it would be good to support these two too, but given they
   -- have the same type, they don't add anything to the implementation
@@ -40,8 +40,8 @@ GFP = PIO GFWorld
 send_event : {l:GFL _ _ _ e} -> GFRef l -> e -> GFP Unit
 send_event p e = interact (SendEvent p e)
 
---sync_send_event : {l:GFL _ se ser _} -> GFRef l -> (e:se) -> GFP (GFSyncResp l e)
---sync_send_event p e = interact (SendSyncEvent p e)
+sync_send_event : {l:GFL st se ser e} -> GFRef l -> (ev:se) -> GFP (GFSyncResp l ev)
+sync_send_event {l=MkGFL st se ser e} p@(MkGFRef _) ev = interact (SendSyncEvent {l=MkGFL st se ser e} p ev)
 
 namespace Init
   data GFInitDone : (GFL _ _ _ _) -> Type -> Type where

@@ -28,8 +28,8 @@ GSWorld = MkIWorld GSCommands GSResponses
 GSP : Type -> Type
 GSP = PIO GSWorld
 
--- call : {l:GSL cl cr _} -> GSRef l -> (m:cl) -> GSP (cr m)
--- call p m = interact (SendCall p m)
+call : {l:GSL cl cr ct} -> GSRef l -> (m:cl) -> GSP (cr m)
+call {l=MkGSL cl cr ct} p@(MkGSRef _) m = interact (SendCall {l=MkGSL cl cr ct} p m)
 
 cast : {l:GSL _ _ ct} -> GSRef l -> ct -> GSP Unit
 cast p m = interact (SendCast p m)

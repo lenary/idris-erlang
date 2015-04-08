@@ -10,19 +10,16 @@ data ErlRaw : Type* -> Type* where
   MkERaw : (x:t) -> ErlRaw t
 %used MkERaw x
 
-
 abstract
 data Atom : Type where
   MkAtom : (x : String) -> Atom
 
-ErlPid : Type
-ErlPid = Ptr
+data Erl_NumTypes: Type -> Type where
+  Erl_IntChar    : Erl_NumTypes Char
+  Erl_IntNative  : Erl_NumTypes Int
+  Erl_Double     : Erl_NumTypes Double
 
 mutual
-  data Erl_NumTypes: Type -> Type where
-    Erl_IntChar    : Erl_NumTypes Char
-    Erl_IntNative  : Erl_NumTypes Int
-
   data Erl_FunTypes : Type -> Type where
     Erl_Fun     : Erl_Types s -> Erl_FunTypes t -> Erl_FunTypes (s -> t)
     Erl_FunIO   : Erl_Types t -> Erl_FunTypes (IO' l t)
@@ -36,7 +33,6 @@ mutual
     Erl_Any  : Erl_Types (ErlRaw a)
     Erl_List : Erl_Types a -> Erl_Types (List a)
     Erl_Tupl : Erl_Types a -> Erl_Types b -> Erl_Types (a,b)
-    -- These have to come last
     Erl_FunT : Erl_FunTypes a -> Erl_Types (ErlFn a)
     Erl_NumT : Erl_NumTypes t -> Erl_Types t
 
@@ -46,6 +42,9 @@ FFI_Erl = MkFFI Erl_Types String String
 -- Make your "Old MacDonald" jokes here please
 EIO : Type -> Type
 EIO = IO' FFI_Erl
+
+ErlPid : Type
+ErlPid = Ptr
 
 -- Annoyingly, the File struct is abstract so we can't use it. I guess
 -- this helps prevent people mixing the two kinds of files... not that

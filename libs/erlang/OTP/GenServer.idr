@@ -80,21 +80,23 @@ data GS : (GSL _ _ _) -> Type -> Type -> Type where
 spawn : (GS l _ i) -> i -> GSRef l
 spawn gs init = ?spawn_impl
 
--- This is how we specify a "Language" that a GenServer uses to
--- communicate, In this example, a simple echo server, it just
--- responds to a call with the same type that it recieved.
-echoL : {a:Type} -> GSL a (\_ => a) ()
-echoL {a} = MkGSL a (\_ => a) ()
+namespace Example
 
--- And here's our implementation of the server with language echoL
-echoGS : GS echoL () ()
-echoGS = MkGS i hcl hct t
-  where
-    -- Init function: just put () into the state
-    i _ = ok ()
-    -- Handle Call: reply with the message you got, preserving the state
-    hcl x s = reply x s
-    -- Handle Cast: do nothing, preserve state
-    hct _ s = no_reply s
-    -- Terminate: do nothing, return ()
-    t _ _ = return ()
+  -- This is how we specify a "Language" that a GenServer uses to
+  -- communicate, In this example, a simple echo server, it just
+  -- responds to a call with the same type that it recieved.
+  echoL : {a:Type} -> GSL a (\_ => a) ()
+  echoL {a} = MkGSL a (\_ => a) ()
+
+  -- And here's our implementation of the server with language echoL
+  echoGS : GS echoL () ()
+  echoGS = MkGS i hcl hct t
+    where
+      -- Init function: just put () into the state
+      i _ = ok ()
+      -- Handle Call: reply with the message you got, preserving the state
+      hcl x s = reply x s
+      -- Handle Cast: do nothing, preserve state
+      hct _ s = no_reply s
+      -- Terminate: do nothing, return ()
+      t _ _ = return ()

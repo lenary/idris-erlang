@@ -63,14 +63,14 @@ spawn = ?spawn_impl
 add_handler : (GE l _ i) -> GERef l -> Unit
 add_handler ge init = ?add_handler_impl
 
+namespace Example
+  testL : GEL ()
+  testL = MkGEL ()
 
-testL : GEL ()
-testL = MkGEL ()
 
-
-testEventHandler : GE testL Int ()
-testEventHandler = MkGE i he t
-  where
-    i _ = ok 1
-    he () st = ok (st+1)
-    t _ _ = return ()
+  testEventHandler : GE testL Int ()
+  testEventHandler = MkGE i he t
+    where
+      i _ = ok 0
+      he () st = ok (st+1)
+      t _ _ = return ()

@@ -90,21 +90,23 @@ data GF : (GFL _ _ _ _) -> Type -> Type -> Type where
 spawn : (GF l _ i) -> i -> GFRef l
 spawn gf init = ?spawn_impl
 
--- This is how we specify a "Language" that a GenFSM uses to
--- communicate, In this example it's a simple switch that specifies
--- whether the fsm will reply with a String or an Int.
 
-computeReply : (Unit -> Bool -> Type)
-computeReply _ True = Integer
-computeReply _ False = String
+namespace Example
+  -- This is how we specify a "Language" that a GenFSM uses to
+  -- communicate, In this example it's a simple switch that specifies
+  -- whether the fsm will reply with a String or an Int.
 
-flipperL : GFL Bool Unit (computeReply) Unit
-flipperL = MkGFL Bool Unit computeReply Unit
+  computeReply : (Unit -> Bool -> Type)
+  computeReply _ True = Integer
+  computeReply _ False = String
 
-flipperF : GF flipperL () ()
-flipperF = MkGF i hse hsse t
-  where i _ = ok True ()
-        hse state () dat = next_state (not state) dat
-        hsse True () dat = reply 87 True dat
-        hsse False () dat = reply "87 Rules!" True dat
-        t _ _ = return ()
+  flipperL : GFL Bool Unit (computeReply) Unit
+  flipperL = MkGFL Bool Unit computeReply Unit
+
+  flipperF : GF flipperL () ()
+  flipperF = MkGF i hse hsse t
+    where i _ = ok True ()
+          hse state () dat = next_state (not state) dat
+          hsse True () dat = reply 42 True dat
+          hsse False () dat = reply "Hello, World!" True dat
+          t _ _ = return ()

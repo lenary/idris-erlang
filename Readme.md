@@ -7,6 +7,7 @@ Idris to Erlang Compiler and Libraries
 - Install [Idris HEAD](https://github.com/idris-lang/Idris-dev) into sandbox
 - Install idris-erlang using `cabal install`
 - Install the erlang package using `(cd libs/erlang; idris --install erlang.ipkg)`
+- Compile the runtime support using `(cd irts; erlc *.erl)`
 
 You're up and running. To invoke the compiler, use
 

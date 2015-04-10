@@ -3,7 +3,8 @@ idris-erlang
 
 Idris to Erlang Compiler and Libraries
 
-- Setup a cabal sandbox
+- Install Erlang
+- Setup a cabal sandbox, but its `bin` dir on your path.
 - Install [Idris HEAD](https://github.com/idris-lang/Idris-dev) into sandbox
 - Install idris-erlang using `cabal install`
 - Install the erlang package using `(cd libs/erlang; idris --install erlang.ipkg)`

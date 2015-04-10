@@ -21,3 +21,5 @@ Then run the program using
 ```
 $ escript main.erl
 ```
+
+If everything has worked, then you should be able to compile and run all the examples. If not, you may need to fiddle about with your cabal sandbox quite a lot more, which is effort.

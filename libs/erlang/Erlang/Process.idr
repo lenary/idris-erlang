@@ -58,9 +58,9 @@ receive_from (MkProcRef p) = do (MkERaw rec) <- lift $ receive_from' p
   where receive_from' : Ptr -> EIO (ErlRaw l)
         receive_from' = foreign FFI_Erl "idris_erlang_conc:receive_from" (Ptr -> EIO (ErlRaw l))
 
-receive_with_from : Process l (ProcRef l',l)
+receive_with_from : Process l (Ptr,l)
 receive_with_from = do (p,MkERaw rec) <- lift $ receive_with_from'
-                       return (MkProcRef p,rec)
+                       return (p,rec)
   where receive_with_from' : EIO (Ptr, ErlRaw l)
         receive_with_from' = foreign FFI_Erl "idris_erlang_conc:receive_any" (EIO (Ptr,ErlRaw l))
 

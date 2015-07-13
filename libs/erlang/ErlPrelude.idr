@@ -6,7 +6,7 @@ data ErlFn : Type -> Type where
   MkErlFun : (x : t) -> ErlFn t
 %used MkErlFun x
 
-data ErlRaw : Type* -> Type* where
+data ErlRaw : Type -> Type where
   MkERaw : (x:t) -> ErlRaw t
 %used MkERaw x
 

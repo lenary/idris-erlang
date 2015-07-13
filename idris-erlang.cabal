@@ -20,11 +20,11 @@ executable idris-erlang
   other-modules:       IRTS.CodegenErlang
 
   build-depends:       base >=4 && <5
-                     , containers >= 0.5 && < 0.6
-                     , idris > 0.9.17
-                     , mtl >= 2.2.1 && < 2.3
-                     , transformers < 0.5
-                     , directory >= 1.2 && < 1.3
+                     , containers
+                     , idris
+                     , mtl
+                     , transformers
+                     , directory
 
   if os(linux)
      cpp-options:   -DLINUX

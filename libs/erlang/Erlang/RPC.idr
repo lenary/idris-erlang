@@ -3,10 +3,9 @@ module Erlang.RPC
 import ErlPrelude
 import Erlang.Process
 
--- This could perhaps be a UniqueType, but it's not allowed in our monad... :(
+abstract
 data RPCSenderTag : Type -> UniqueType where
   MkRPCSTag : Ptr -> RPCSenderTag l
-
 
 rpc_send_req : ProcRef l' -> l' -> Process l (RPCSenderTag l)
 rpc_send_req (MkProcRef p) req = do tag <- lift $ rpc_send_req' p (MkERaw req)
@@ -20,7 +19,7 @@ rpc_recv_rep (MkRPCSTag tag) = do (MkERaw reply) <- lift $ rpc_recv_rep' tag
   where rpc_recv_rep' : Ptr -> EIO (ErlRaw l)
         rpc_recv_rep' = foreign FFI_Erl "idris_erlang_conc:rpc_recv_rep" (Ptr -> EIO (ErlRaw l))
 
-
+abstract
 data RPCRecvTag : UniqueType where
   MkRPCRTag : Ptr -> RPCRecvTag
 

@@ -19,3 +19,5 @@ TAGS
 src/Version_idris.hs
 *.beam
 .*.el
+*.S
+*.core

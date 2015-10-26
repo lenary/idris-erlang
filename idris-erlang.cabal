@@ -1,7 +1,7 @@
 -- TODO: add idris --install <pkg> to install steps
 
 name:                idris-erlang
-version:             0.0.1.0
+version:             0.0.2.0
 synopsis:            Erlang Backend for the Idris Compiler
 license:             BSD3
 license-file:        LICENSE
@@ -14,14 +14,14 @@ cabal-version:       >=1.8
 data-files:          irts/*.erl
                    , irts/*.beam
 
-executable idris-erlang
+executable idris-codegen-erlang
   main-is:             Main.hs
   hs-source-dirs:      src
   other-modules:       IRTS.CodegenErlang
 
   build-depends:       base >=4 && <5
                      , containers
-                     , idris
+                     , idris >= 0.9.19 && <1
                      , mtl
                      , transformers
                      , directory

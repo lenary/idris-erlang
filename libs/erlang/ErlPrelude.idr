@@ -10,9 +10,7 @@ data ErlRaw : Type -> Type where
   MkERaw : (x:t) -> ErlRaw t
 %used MkERaw x
 
-abstract
-data Atom : Type where
-  MkAtom : (x : String) -> Atom
+abstract data Atom : Type
 
 data Erl_NumTypes: Type -> Type where
   Erl_IntChar    : Erl_NumTypes Char
@@ -30,11 +28,10 @@ mutual
     Erl_Atom : Erl_Types Atom
     Erl_Ptr  : Erl_Types Ptr
     Erl_Unit : Erl_Types ()
-    Erl_Any  : Erl_Types (ErlRaw a)
     Erl_List : Erl_Types a -> Erl_Types (List a)
-    Erl_Tupl : Erl_Types a -> Erl_Types b -> Erl_Types (a,b)
     Erl_FunT : Erl_FunTypes a -> Erl_Types (ErlFn a)
     Erl_NumT : Erl_NumTypes t -> Erl_Types t
+    Erl_Any  : Erl_Types (ErlRaw a)
 
 FFI_Erl : FFI
 FFI_Erl = MkFFI Erl_Types String String
@@ -164,6 +161,3 @@ namespace Erl
 
 atom : String -> EIO Atom
 atom = foreign FFI_Erl "list_to_atom" (String -> EIO Atom)
-
-lists_reverse : List Int -> EIO (List Int)
-lists_reverse = foreign FFI_Erl "lists:reverse" (List Int -> EIO (List Int))

@@ -1,6 +1,6 @@
 -module(idris_erlang_conc).
 
--export([receive_any/0, receive_from/1, send/2]).
+-export([receive_any/0, receive_any_from/1, receive_any_msg/1, receive_from/1, send/2]).
 -export([rpc_send_req/2, rpc_recv_rep/1, rpc_recv_req/0, rpc_send_rep/2]).
 
 %%% Messages
@@ -10,9 +10,15 @@
 % This is ugly, but required for messaging beneath.  I could add a
 % timeout to make it safer, but then race conditions and no blocking,
 % so nope. Maybe I'll work out a better way.
--spec receive_any() -> {pid(), any()}.
+-spec receive_any() -> {'$idris_rts_any', pid(), any()}.
 receive_any() ->
     receive ?IDRIS_MSG(From,Msg) -> {From,Msg} end.
+
+receive_any_from({'$idris_rts_any', From, _Msg}) ->
+    From.
+
+receive_any_msg({'$idris_rts_any', _From, Msg}) ->
+    Msg.
 
 -spec receive_from(pid()) -> any().
 receive_from(Process) ->

@@ -20,10 +20,9 @@ import           System.Exit (exitSuccess,exitFailure)
 import           Paths_idris_erlang (getDataFileName)
 
 -- TODO: Exports
--- TODO: Constructors as Records?
 
--- Everything happens in here. I think. Wait, no, everything actually
--- happens in `generateErl`. This is just a bit of glue code.
+-- Everything actually happens in `generateErl`. This is just a bit of
+-- glue code.
 codegenErlang :: CodeGenerator
 codegenErlang ci = do let outfile = outputFile ci
                       eitherEcg <- runErlCodeGen generateErl (defunDecls ci) (exportDecls ci)
@@ -51,11 +50,10 @@ header filename data_dir
      "",
      "-module(" ++ modulename ++ ").\n",
      "",
-     "-mode(compile).    %% Escript",
      "-export([main/1]). %% Escript.",
      "",
-     "-compile(nowarn_unused_function).", -- don't tell me off for not using a fun
-     "-compile(nowarn_unused_vars).",     -- don't tell me off for not using a variable
+     "-compile(inline).",                 -- enable inlining
+     "-compile({inline_size,1000}).",     -- turn inlining up to 11
      "",
      "-define(TRUE,  1).",
      "-define(FALSE, 0).",
@@ -66,17 +64,17 @@ header filename data_dir
 data ErlCodeGen = ECG {
   forms :: Map.Map (String,Int) String, -- name and arity to form
   decls :: [(Name,DDecl)],
-  records :: [(Name,Int)],
-  locals :: [[(Int, String)]],
-  nextLocal :: [Int]
+  records :: [(Name,Int)]
+  -- locals :: [[(Int, String)]],
+  -- nextLocal :: [Int]
   } deriving (Show)
 
 initECG :: ErlCodeGen
 initECG = ECG { forms = Map.empty
               , decls = []
               , records = []
-              , locals = []
-              , nextLocal = [0]
+              -- , locals = []
+              -- , nextLocal = [0]
               }
 
 type ErlCG = StateT ErlCodeGen (ExceptT String IO)
@@ -108,41 +106,10 @@ isRecord nm ar = do records <- gets records
                      Just ar -> return True
                      _       -> return False
 
--- OMG Coping with Local variables is a struggle.
---
--- locals is the mapping from (Loc n) to the variable name of that
--- binding. nextLocal is the largest (Loc n) seen at that level of the
--- stack.
-
-wipeScope :: ErlCG ()
-wipeScope = modify (\ecg -> ecg { locals = []
-                                , nextLocal = [0]})
-
-popScope :: ErlCG ()
-popScope = modify (\ecg -> ecg { locals = tail (locals ecg)
-                               , nextLocal = tail (nextLocal ecg) })
-
-
-pushScopeWithVars :: [String] -> ErlCG ()
-pushScopeWithVars vars = modify (\ecg -> ecg { locals = (zipWith (,) [0..] vars):(locals ecg)
-                                             , nextLocal = (length vars) + (head (nextLocal ecg)):(nextLocal ecg) })
-
-
-inScope :: ErlCG a -> ErlCG a
-inScope = inScopeWithVars []
-
-inScopeWithVars :: [String] -> ErlCG a -> ErlCG a
-inScopeWithVars vars p = do pushScopeWithVars vars
-                            r <- p
-                            popScope
-                            return r
-
 getVar :: LVar -> ErlCG String
 getVar (Glob name) = return $ erlVar name
-getVar (Loc i) = do ls <- gets (concat . locals)
-                    case lookup i ls of
-                     Just var -> return var
-                     Nothing  -> throwError "Local Not Found. Oh Fuck."
+getVar (Loc i) = throwError "Local Variables not supported"
+
 
 {- The Code Generator:
 
@@ -174,7 +141,8 @@ the constructor functions in favour of just building tuples immediately.
 generateErl :: [(Name,DDecl)] -> [ExportIFace] -> ErlCG ()
 generateErl alldecls exportifaces =
   let (ctors, funs) = (isCtor . snd) `partition` alldecls
-  in do generateMain (sMN 0 "runMain")
+  in do generateMain
+        -- mapM_ (\(_,DConstructor name _ arity) -> liftIO . putStrLn $ show name ++ " / " ++ show arity) ctors
         mapM_ (\(_,DConstructor name _ arity) -> generateCtor name arity) ctors
         mapM_ (\(_,DFun name args exp)        -> generateFun name args exp) funs
         mapM_ (\(Export name file exports)    -> generateExportIFace name file exports) exportifaces
@@ -182,17 +150,19 @@ generateErl alldecls exportifaces =
         isCtor (DConstructor _ _ _) = True
 
 
+generateMain :: ErlCG ()
+generateMain = do erlExp <- generateExp $ DApp False mainName []
+                  emitForm ("main", 1) ("main(_Args) -> " ++ erlExp ++ ".")
 
-generateMain :: Name -> ErlCG ()
-generateMain m = do erlExp <- inScope . generateExp $ DApp False m []
-                    emitForm ("main", 1) ("main(_Args) -> " ++ erlExp ++ ".")
-                    wipeScope
+mainName, evalName, applyName :: Name
+mainName  = sMN 0 "runMain"
+evalName  = sMN 0 "EVAL"
+applyName = sMN 0 "APPLY"
 
 generateFun :: Name -> [Name] -> DExp -> ErlCG ()
 generateFun _ _ DNothing = return ()
-generateFun name args exp = do erlExp <- inScopeWithVars args' $ generateExp exp
+generateFun name args exp = do erlExp <- generateExp exp
                                emitForm (erlAtom name, length args) ((erlAtom name) ++ "(" ++ argsStr ++ ") -> "++ erlExp ++".")
-                               wipeScope
   where args' = map erlVar args
         argsStr = ", " `intercalate` args'
 
@@ -219,7 +189,7 @@ generateExp (DApp _ name exprs)  = do res <- isRecord name (length exprs)
 generateExp (DLet vn exp inExp) = do exp' <- generateExp exp
                                      inExp' <- generateExp inExp
                                      -- We should really be adding a local here, I think
-                                     return $ (erlVar vn) ++ " = begin " ++ exp' ++ "end, "++ inExp'
+                                     return $ (erlVar vn) ++ " = begin " ++ exp' ++ " end, "++ inExp'
 
 -- These are never generated by the compiler right now
 generateExp (DUpdate _ exp) = generateExp exp
@@ -261,14 +231,14 @@ generateCaseAlt :: DAlt -> ErlCG String
 generateCaseAlt (DConCase _ name args expr) = do res <- isRecord name (length args)
                                                  let args' = map erlVar args
                                                  if res
-                                                   then do expr' <- inScopeWithVars args' $ generateExp expr
+                                                   then do expr' <- generateExp expr
                                                            ctor <- specialCaseCtor name args'
                                                            return $ ctor ++ " -> " ++ expr'
                                                    else throwError "No Constructor to Match With"
 generateCaseAlt (DConstCase con expr)       = do con' <- generateConst con
-                                                 expr' <- inScope $ generateExp expr
+                                                 expr' <- generateExp expr
                                                  return $ con' ++ " -> " ++ expr'
-generateCaseAlt (DDefaultCase expr)         = do expr' <- inScope $ generateExp expr
+generateCaseAlt (DDefaultCase expr)         = do expr' <- generateExp expr
                                                  return $ "_ -> " ++ expr'
 
 
@@ -410,10 +380,12 @@ generateExternalPrim nm _ | nm == sUN "prim__stdin"  = return $ "standard_io"
                           | nm == sUN "prim__stderr" = return $ "standard_io"
                           | nm == sUN "prim__vm"     = return $ "undefined"
                           | nm == sUN "prim__null"   = return $ "undefined"
-generateExternalPrim nm [_,h]   | nm == sUN "prim__readFile"  = return $ erlCallIRTS "read_file" [h]
-generateExternalPrim nm [_,h,s] | nm == sUN "prim__writeFile" = return $ erlCallIRTS "write_file" [h,s]
-generateExternalPrim nm [p,l] | nm == sUN "prim__registerPtr" = return $ erlCallIRTS "register_ptr" [p,l]
-generateExternalPrim nm args = do liftIO . putStrLn $ "Unknown External Primitive: " ++ show nm ++ " on " ++ show (length args) ++ "args."
+generateExternalPrim nm [_,h]     | nm == sUN "prim__readFile"     = return $ erlCallIRTS "read_file" [h]
+generateExternalPrim nm [_,h,s]   | nm == sUN "prim__writeFile"    = return $ erlCallIRTS "write_file" [h,s]
+generateExternalPrim nm [p1,p2] | nm == sUN "prim__eqPtr"        = return $ erlCallIRTS "ptr_eq" [p1,p2]
+generateExternalPrim nm [p1,p2] | nm == sUN "prim__eqManagedPtr" = return $ erlCallIRTS "ptr_eq" [p1,p2]
+generateExternalPrim nm [p,l]   | nm == sUN "prim__registerPtr"  = return $ erlCallIRTS "register_ptr" [p,l]
+generateExternalPrim nm args = do liftIO . putStrLn $ "Unknown External Primitive: " ++ show nm ++ " on " ++ show (length args) ++ " args."
                                   throwError "generatePrim: Unknown External Primitive"
 
 
@@ -438,7 +410,6 @@ strAtom s = "\'" ++ concatMap atomchar s ++ "\'"
 -- Erlang Variables have a more restricted set of chars, and must
 -- start with a capital letter (erased can start with an underscore)
 erlVar :: Name -> String
-erlVar NErased = "_Erased"
 erlVar n = capitalize (concatMap varchar (showCG n))
   where varchar x | isAlpha x = [x]
                   | isDigit x = [x]
@@ -471,18 +442,18 @@ erlBoolOp op x y = erlCallIRTS "bool_cast" [erlBinOp op x y]
 -- * Prelude.List.Nil gets turned into []
 -- * Prelude.List.(::) gets turned into [head|tail]
 -- * MkUnit () gets turned into {}
--- * Builtins.MkPair gets turned into {a,b}
 -- * Prelude.Bool.True gets turned into true
 -- * Prelude.Bool.False gets turned into false
 -- * Zero Argument constructors become single atoms
 --
 specialCaseCtor :: Name -> [String] -> ErlCG String
 specialCaseCtor nm args | nm == (sNS (sUN "Nil") ["List", "Prelude"]) = return "[]"
-                        | nm == (sNS (sUN "::") ["List", "Prelude"])  = let [hd,tl] = args
-                                                                        in return $ "["++ hd ++ "|" ++ tl ++"]"
+                        | nm == (sNS (sUN "::") ["List", "Prelude"])  =
+                            case args of
+                             [hd,tl] -> return $ "["++ hd ++ "|"++ tl ++"]"
+                             [] -> return $ "[]"
+                             other -> throwError $ "special case, list cons, not 2 arguments:" ++ show other
                         | nm == (sUN "MkUnit") = return "{}"
-                        | nm == (sNS (sUN "MkPair") ["Builtins"]) = let [a,b] = args
-                                                                    in return $ "{"++ a ++ ", " ++ b ++"}"
                         | nm == (sNS (sUN "True") ["Bool", "Prelude"])  = return "true"
                         | nm == (sNS (sUN "False") ["Bool", "Prelude"]) = return "false"
 

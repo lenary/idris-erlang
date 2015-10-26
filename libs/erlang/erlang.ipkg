@@ -3,4 +3,4 @@ package erlang
 opts = "--total"
 
 modules = ErlPrelude,
-          Erlang.Process, Erlang.RPC,
+          Erlang.Process

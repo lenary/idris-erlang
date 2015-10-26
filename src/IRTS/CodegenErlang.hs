@@ -30,13 +30,22 @@ codegenErlang ci = do let outfile = outputFile ci
                         Left err -> do putStrLn ("Error: " ++ err)
                                        exitFailure
                         Right ecg -> do data_dir <- getDataFileName "irts"
-                                        let erlout = (header outfile data_dir) ++ (Map.elems . forms) ecg ++ [""]
-                                        writeFile outfile ("\n" `intercalate` erlout)
-                                        p <- getPermissions outfile
-                                        setPermissions outfile $ setOwnerExecutable True p
+                                        let erlout = header outfile data_dir
+                                                     ++ exports_section (exports ecg)
+                                                     ++ ["", ""]
+                                                     ++ Map.elems (forms ecg)
+                                        writeFile outfile $ "\n" `intercalate` erlout ++ "\n"
+
+                                        if null (exportDecls ci)
+                                          then do p <- getPermissions outfile
+                                                  setPermissions outfile $ setOwnerExecutable True p
+                                                  return ()
+                                          else return ()
 
                                         putStrLn ("Compilation Succeeded: " ++ outfile)
                                         exitSuccess
+
+
 
 -- Erlang files have to have a `-module().` annotation that matches
 -- their filename (without the extension). Given we're making this, we
@@ -50,24 +59,29 @@ header filename data_dir
      "",
      "-module(" ++ modulename ++ ").\n",
      "",
-     "-export([main/1]). %% For Escript.",
-     "",
      "-compile(inline).             %% Enable Inlining",
      "-compile({inline_size,1100}). %% Turn Inlining up to 11",
      ""]
   where modulename = takeWhile (/='.') filename
 
+exports_section :: [(String,Int)] -> [String]
+exports_section = map (\(f,a) -> "-export(["++ f ++"/"++ show a ++"]).")
+
+-- exportCompileTag
+
 -- Erlang Codegen State Monad
 data ErlCodeGen = ECG {
   forms :: Map.Map (String,Int) String, -- name and arity to form
   decls :: [(Name,DDecl)],
-  records :: [(Name,Int)]
+  records :: [(Name,Int)],
+  exports :: [(String,Int)]
   } deriving (Show)
 
 initECG :: ErlCodeGen
 initECG = ECG { forms = Map.empty
               , decls = []
               , records = []
+              , exports = []
               }
 
 type ErlCG = StateT ErlCodeGen (ExceptT String IO)
@@ -77,6 +91,9 @@ runErlCodeGen ecg ddecls eifaces = runExceptT $ execStateT (ecg ddecls eifaces) 
 
 emitForm :: (String, Int) -> String -> ErlCG ()
 emitForm fa form = modify (\ecg -> ecg { forms = Map.insert fa form (forms ecg)})
+
+emitExport :: (String, Int) -> ErlCG ()
+emitExport fa = modify (\ecg -> ecg { exports = fa : (exports ecg)})
 
 addRecord :: Name -> Int -> ErlCG ()
 addRecord name arity = do records <- gets records
@@ -134,18 +151,22 @@ the constructor functions in favour of just building tuples immediately.
 generateErl :: [(Name,DDecl)] -> [ExportIFace] -> ErlCG ()
 generateErl alldecls exportifaces =
   let (ctors, funs) = (isCtor . snd) `partition` alldecls
-  in do generateMain
-        -- mapM_ (\(_,DConstructor name _ arity) -> liftIO . putStrLn $ show name ++ " / " ++ show arity) ctors
-        mapM_ (\(_,DConstructor name _ arity) -> generateCtor name arity) ctors
+  in do mapM_ (\(_,DConstructor name _ arity) -> generateCtor name arity) ctors
         mapM_ (\(_,DFun name args exp)        -> generateFun name args exp) funs
-        mapM_ (\(Export name file exports)    -> generateExportIFace name file exports) exportifaces
+        generateExports exportifaces
+
   where isCtor (DFun _ _ _) = False
         isCtor (DConstructor _ _ _) = True
 
 
+generateExports :: [ExportIFace] -> ErlCG ()
+generateExports []      = generateMain
+generateExports exports = mapM_ (\(Export name file exports) -> generateExportIFace name file exports) exports
+
 generateMain :: ErlCG ()
 generateMain = do erlExp <- generateExp $ DApp False mainName []
                   emitForm ("main", 1) ("main(_Args) -> " ++ erlExp ++ ".")
+                  emitExport ("main", 1)
 
 mainName, evalName, applyName :: Name
 mainName  = sMN 0 "runMain"
@@ -221,7 +242,7 @@ generateCase :: DExp -> [DAlt] -> ErlCG String
 -- This is annoying, as bool_cast has already changed `x OP y` from
 -- returning a bool to returning an integer, so we special-case these
 -- case statements into just generating the bool again.
-generateCase (DOp op exprs) [DConstCase (C 0) false, DDefaultCase true]
+generateCase (DOp op exprs) [DConstCase (I 0) false, DDefaultCase true]
   | isBoolOp op && isFalseCtor false && isTrueCtor true = do exprs' <- mapM generateExp exprs
                                                              simpleBoolOp op exprs'
   where isFalseCtor (DC _ _ nm _) | nm == (sNS (sUN "False") ["Bool", "Prelude"]) = True
@@ -441,7 +462,7 @@ erlCallIRTS :: String -> [String] -> String
 erlCallIRTS f a = erlCallMFA "idris_erlang_rts" f a
 
 erlBoolOp :: String -> String -> String -> String
-erlBoolOp op x y = erlCallIRTS "bool_cast" [erlBinOp op x y]
+erlBoolOp op x y = erlCallIRTS "bool_cast" [concat [x, " ", op, " ", y]]
 
 isBoolOp :: PrimFn -> Bool
 isBoolOp (LEq _) = True

@@ -3,6 +3,7 @@
 -define(TRUE,  1).
 -define(FALSE, 0).
 
+-export([project/2]).
 -export([floor/1, ceil/1]).
 -export([bool_cast/1]).
 -export([str_index/2, str_null/1]).
@@ -20,6 +21,28 @@
 %% Erlang Doesn't have Floor and Ceil, so we have our own
 %% implementations from
 %% http://erlangcentral.org/wiki/index.php/Floating_Point_Rounding
+
+%% This has to be able to deal with Special-casing as done in the
+%% compiler.
+%%
+%% We special-case booleans, unit, lists, and zero-argument
+%% constructors. All others become tuples
+%%
+%% Booleans, Unit and zero-argument constructors cannot be indexed In
+%% the case of lists, we need to project out the head and the tail,
+%% which are the zeroeth and first fields respectively.
+%%
+%% All others we index into the tuple. Unfortunately, element/2 uses
+%% 1-indexes, whereas we're provided a zero-index. Also, we put the
+%% name of the constructor into the start of the tuple, so we must add
+%% two to the zero-index to get the right field of the tuple.
+-spec project(any(), non_neg_integer()) -> term().
+project([Hd|_], 0) -> Hd;
+project([_|Tl], 1) -> Tl;
+project(T, Idx) when is_tuple(T) ->
+    element(Idx+2, T).
+
+
 
 -spec floor(number()) -> integer().
 floor(X) when X < 0 ->

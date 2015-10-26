@@ -4,5 +4,3 @@ opts = "--total"
 
 modules = ErlPrelude,
           Erlang.Process, Erlang.RPC,
-          OTP.Parameterised,
-          OTP.GenServer, OTP.GenFSM, OTP.GenEvent

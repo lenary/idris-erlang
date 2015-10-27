@@ -20,7 +20,7 @@ data Erl_NumTypes: Type -> Type where
 mutual
   data Erl_FunTypes : Type -> Type where
     Erl_Fun     : Erl_Types s -> Erl_FunTypes t -> Erl_FunTypes (s -> t)
-    Erl_FunIO   : Erl_Types t -> Erl_FunTypes (IO' l t)
+    Erl_FunIO   : Erl_Types t -> Erl_FunTypes (EIO t)
     Erl_FunBase : Erl_Types t -> Erl_FunTypes t
 
   data Erl_Types : Type -> Type where
@@ -31,14 +31,14 @@ mutual
     Erl_List : Erl_Types a -> Erl_Types (List a)
     Erl_FunT : Erl_FunTypes a -> Erl_Types (ErlFn a)
     Erl_NumT : Erl_NumTypes t -> Erl_Types t
-    Erl_Any  : Erl_Types (ErlRaw a)
+    Erl_Raw  : Erl_Types (ErlRaw a)
 
-FFI_Erl : FFI
-FFI_Erl = MkFFI Erl_Types String String
+  FFI_Erl : FFI
+  FFI_Erl = MkFFI Erl_Types String String
 
--- Make your "Old MacDonald" jokes here please
-EIO : Type -> Type
-EIO = IO' FFI_Erl
+  -- Make your "Old MacDonald" jokes here please
+  EIO : Type -> Type
+  EIO = IO' FFI_Erl
 
 ErlPid : Type
 ErlPid = Ptr

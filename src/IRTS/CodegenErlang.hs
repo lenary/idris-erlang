@@ -23,6 +23,9 @@ import           IRTS.CodegenErlang.Exports
 
 -- TODO: Exports
 
+debugErlang :: Bool
+debugErlang = False
+
 -- Everything actually happens in `generateErl`. This is just a bit of
 -- glue code.
 codegenErlang :: CodeGenerator
@@ -61,12 +64,12 @@ header filename data_dir
      "",
      "-module(" ++ modulename ++ ").",
      "",
-     -- "-compile(inline).             %% Enable Inlining",
-     -- "-compile({inline_size,1100}). %% Turn Inlining up to 11",
-     "-compile(export_all).",
+     if debugErlang then "" else "-compile(inline).             %% Enable Inlining",
+     if debugErlang then "" else "-compile({inline_size,1100}). %% Turn Inlining up to 11",
+     if debugErlang then "-compile(export_all)." else "",
      "",
-     "-mode(compile).",
-     -- "-include_lib(\"stdlib/include/ms_transform.hrl\").",
+     if debugErlang then "-mode(compile)." else "",
+     if debugErlang then "-include_lib(\"stdlib/include/ms_transform.hrl\")." else "",
      ""]
   where modulename = takeWhile (/='.') filename
 
@@ -185,8 +188,9 @@ generateMain = do erlExp <- generateExp $ DApp False mainName []
                   emitForm ("main", 1) ("main(_Args) -> \n" ++ dbgStmt ++ erlExp ++ ".")
                   emitExport ("main", 1)
                     where
-                      dbgStmt = ""
-                      -- dbgStmt = "dbg:tracer(), dbg:p(self(), c), dbg:tpl(?MODULE, dbg:fun2ms(fun(_) -> return_trace() end)),\n"
+                      dbgStmt = if debugErlang
+                                then "dbg:tracer(), dbg:p(self(), c), dbg:tpl(?MODULE, dbg:fun2ms(fun(_) -> return_trace() end)),\n"
+                                else ""
 
 mainName :: Name
 mainName  = sMN 0 "runMain"

@@ -61,8 +61,12 @@ header filename data_dir
      "",
      "-module(" ++ modulename ++ ").",
      "",
-     "-compile(inline).             %% Enable Inlining",
-     "-compile({inline_size,1100}). %% Turn Inlining up to 11",
+     -- "-compile(inline).             %% Enable Inlining",
+     -- "-compile({inline_size,1100}). %% Turn Inlining up to 11",
+     "-compile(export_all).",
+     "",
+     "-mode(compile).",
+     -- "-include_lib(\"stdlib/include/ms_transform.hrl\").",
      ""]
   where modulename = takeWhile (/='.') filename
 
@@ -76,7 +80,8 @@ data ErlCodeGen = ECG {
   forms :: Map.Map (String,Int) String, -- name and arity to form
   decls :: [(Name,DDecl)],
   records :: [(Name,Int)],
-  exports :: [(String,Int)]
+  exports :: [(String,Int)],
+  checked_fns :: Map.Map (String,Int) Int
   } deriving (Show)
 
 initECG :: ErlCodeGen
@@ -84,6 +89,7 @@ initECG = ECG { forms = Map.empty
               , decls = []
               , records = []
               , exports = []
+              , checked_fns = Map.empty
               }
 
 type ErlCG = StateT ErlCodeGen (ExceptT String IO)
@@ -121,6 +127,15 @@ isRecord nm ar = do records <- gets records
 getVar :: LVar -> ErlCG String
 getVar (Glob name) = return $ erlVar name
 getVar (Loc i) = throwError "Local Variables not supported"
+
+getNextCheckedFnName :: String -> Int -> ErlCG String
+getNextCheckedFnName fn arity =
+  do checked <- gets checked_fns
+     case Map.lookup (fn,arity) checked of
+       Nothing -> do modify (\ecg -> ecg { checked_fns = Map.insert (fn,arity) 1 checked })
+                     return . strAtom $ "checked_" ++ fn ++ "_" ++ show 0
+       Just x -> do modify (\ecg -> ecg {checked_fns = Map.update (Just . (+1)) (fn,arity) checked })
+                    return . strAtom $ "checked_" ++ fn ++ "_" ++ show x
 
 
 {- The Code Generator:
@@ -167,13 +182,14 @@ generateExports exports = mapM_ (\(Export name file exports) -> generateExportIF
 
 generateMain :: ErlCG ()
 generateMain = do erlExp <- generateExp $ DApp False mainName []
-                  emitForm ("main", 1) ("main(_Args) -> " ++ erlExp ++ ".")
+                  emitForm ("main", 1) ("main(_Args) -> \n" ++ dbgStmt ++ erlExp ++ ".")
                   emitExport ("main", 1)
+                    where
+                      dbgStmt = ""
+                      -- dbgStmt = "dbg:tracer(), dbg:p(self(), c), dbg:tpl(?MODULE, dbg:fun2ms(fun(_) -> return_trace() end)),\n"
 
-mainName, evalName, applyName :: Name
+mainName :: Name
 mainName  = sMN 0 "runMain"
-evalName  = sMN 0 "EVAL"
-applyName = sMN 0 "APPLY"
 
 generateFun :: Name -> [Name] -> DExp -> ErlCG ()
 generateFun _ _ DNothing = return ()
@@ -247,9 +263,9 @@ generateCase :: DExp -> [DAlt] -> ErlCG String
 generateCase (DOp op exprs) [DConstCase (I 0) false, DDefaultCase true]
   | isBoolOp op && isFalseCtor false && isTrueCtor true = do exprs' <- mapM generateExp exprs
                                                              simpleBoolOp op exprs'
-  where isFalseCtor (DC _ _ nm _) | nm == (sNS (sUN "False") ["Bool", "Prelude"]) = True
+  where isFalseCtor (DC _ _ (NS (UN "False") ["Bool", "Prelude"]) []) = True
         isFalseCtor _ = False
-        isTrueCtor (DC _ _ nm _)  | nm == (sNS (sUN "True") ["Bool", "Prelude"])  = True
+        isTrueCtor (DC _ _ (NS (UN "True") ["Bool", "Prelude"])   []) = True
         isTrueCtor _ = False
 generateCase expr alts = do expr' <- generateExp expr
                             alts' <- mapM generateCaseAlt alts
@@ -272,11 +288,22 @@ generateCaseAlt (DDefaultCase expr)         = do expr' <- generateExp expr
 
 
 -- Foreign Calls
+--
 generateForeign :: FDesc -> FDesc -> [(FDesc,DExp)] -> ErlCG String
-generateForeign _ (FStr "list_to_atom") [(_,DConst (Str s))] = return $ strAtom s
-generateForeign ret (FStr nm) args = do args' <- mapM (generateExp . snd) args
-                                        return $ nm ++ "("++ (", " `intercalate` args') ++")"
+generateForeign Erl_Atom (FStr "list_to_atom") [(Erl_Str,DConst (Str s))] = return $ strAtom s
+generateForeign rety (FStr nm) args = do checkedNm <- getNextCheckedFnName nm (length args)
+                                         args' <- mapM (generateExp . snd) args
 
+                                         emitForm (checkedNm, length args) $
+                                           checkedFnCall checkedNm nm rety (map fst args)
+
+                                         return $ erlCall checkedNm args'
+
+
+
+
+generateCallbackWrappers :: [(ErlT,String)] -> ErlCG [String]
+generateCallbackWrappers _ = return []
 
 -- Some Notes on Constants
 --
@@ -430,27 +457,24 @@ erlAtom n = strAtom (showCG n)
 
 strAtom :: String -> String
 strAtom s = "\'" ++ concatMap atomchar s ++ "\'"
-  where atomchar x | x == '\'' = "\\'"
-                   | x == '\\' = "\\\\"
-                   | x == '.' = "_"
-                   | x `elem` "{}" = ""
-                   | isPrint x = [x]
+  where atomchar '\'' = "\\'"
+        atomchar '\\' = "\\\\"
+        atomchar '{'  = ""
+        atomchar '}'  = ""
+        atomchar x | isPrint x = [x]
                    | otherwise = "_" ++ show (fromEnum x) ++ "_"
 
 
 -- Erlang Variables have a more restricted set of chars, and must
 -- start with a capital letter (erased can start with an underscore)
 erlVar :: Name -> String
-erlVar n = capitalize (concatMap varchar (showCG n))
-  where varchar x | isAlpha x = [x]
+erlVar n = 'I':(concatMap varchar (showCG n))
+  where varchar '_' = "_"
+        varchar '{' = ""
+        varchar '}' = ""
+        varchar x | isAlpha x = [x]
                   | isDigit x = [x]
-                  | x == '_'  = "_"
-                  | x `elem` "{}" = "" -- I hate the {}, and they fuck up everything.
                   | otherwise = "_" ++ show (fromEnum x) ++ "_"
-        capitalize [] = []
-        capitalize (x:xs) | isUpper x = x:xs
-                          | isLower x = (toUpper x):xs
-                          | otherwise = 'V':x:xs
 
 erlTuple :: [String] -> String
 erlTuple elems = "{" ++ (", " `intercalate` elems) ++ "}"
@@ -503,15 +527,11 @@ simpleBoolOp _ _ = throwError "Unknown Boolean Primitive Operation, this shouldn
 -- * MkUnit () gets turned into {}
 -- * Prelude.Bool.True gets turned into true
 -- * Prelude.Bool.False gets turned into false
--- * Zero Argument constructors become single atoms
 --
 specialCaseCtor :: Name -> [String] -> ErlCG String
-specialCaseCtor nm args | nm == (sNS (sUN "Nil") ["List", "Prelude"]) = return "[]"
-                        | nm == (sNS (sUN "::") ["List", "Prelude"])  =
-                            let [hd,tl] = args in return $ "["++ hd ++ "|"++ tl ++"]"
-                        | nm == (sUN "MkUnit") = return "{}"
-                        | nm == (sNS (sUN "True") ["Bool", "Prelude"])  = return "true"
-                        | nm == (sNS (sUN "False") ["Bool", "Prelude"]) = return "false"
-
-specialCaseCtor nm []   = return $ erlAtom nm
+specialCaseCtor (NS (UN "Nil") ["List", "Prelude"]) []      = return "[]"
+specialCaseCtor (NS (UN "::")  ["List", "Prelude"]) [hd,tl] = return $ "["++ hd ++ "|"++ tl ++"]"
+specialCaseCtor (UN "MkUnit") [] = return "{}"
+specialCaseCtor (NS (UN "True")  ["Bool", "Prelude"]) [] = return "true"
+specialCaseCtor (NS (UN "False") ["Bool", "Prelude"]) [] = return "false"
 specialCaseCtor nm args = return $ "{"++ (", " `intercalate` (erlAtom nm : args)) ++"}"

@@ -18,7 +18,11 @@ executable idris-codegen-erlang
   main-is:             Main.hs
   hs-source-dirs:      src
   other-modules:       IRTS.CodegenErlang
-                       IRTS.CodegenErlang.Exports
+                     , IRTS.CodegenErlang.Exports
+
+  extensions:          PatternSynonyms
+                     , ViewPatterns
+                     , OverloadedStrings
 
   build-depends:       base >=4 && <5
                      , containers

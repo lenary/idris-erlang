@@ -124,7 +124,7 @@ namespace Erl
 
 
   putChar : Char -> EIO ()
-  putChar c = putStr (singleton c)
+  putChar c = putStr' (singleton c)
 
   getChar : EIO Char
   getChar = fgetc stdin

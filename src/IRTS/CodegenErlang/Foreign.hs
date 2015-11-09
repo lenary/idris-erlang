@@ -1,4 +1,4 @@
-module IRTS.CodegenErlang.Exports where
+module IRTS.CodegenErlang.Foreign where
 
 import Idris.Core.TT
 import IRTS.Lang
@@ -116,9 +116,8 @@ checkedCallBack (EFun unwrap ret args) nm   = Just $ "Chkd_"++nm++" = fun("++ ar
   where args' = map (\(ty,ix) -> (ty,nm ++ "_" ++ show ix)) (zip args [1..])
         argstr = ", " `intercalate` (map snd args')
         chks = mapMaybe (uncurry check_t) args'
-        finalcall True xs = "'APPLY0'("++ finalcall False xs ++", undefined)"
-        finalcall False [] = "'APPLY0'("++nm++", undefined)"
-        finalcall False [a] = "'APPLY0'("++nm++", "++ a++")"
+        finalcall True xs = "'APPLY0'("++ finalcall False xs ++", the_world)"
+        finalcall False []     = nm
         finalcall False (x:xs) = "'APPLY0'("++ finalcall False xs ++", "++ x ++")"
 
         body = ",\n" `intercalate` (chks ++ [""++finalcall unwrap (reverse (map snd args'))++""])

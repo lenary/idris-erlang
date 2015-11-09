@@ -19,7 +19,7 @@ import           System.Exit (exitSuccess,exitFailure)
 
 import           Paths_idris_erlang (getDataFileName)
 
-import           IRTS.CodegenErlang.Exports
+import           IRTS.CodegenErlang.Foreign
 
 -- TODO: Exports
 
@@ -66,7 +66,7 @@ header filename data_dir
      "",
      if debugErlang then "" else "-compile(inline).             %% Enable Inlining",
      if debugErlang then "" else "-compile({inline_size,1100}). %% Turn Inlining up to 11",
-     if debugErlang then "-compile(export_all)." else "",
+     "-compile(export_all).",
      "",
      if debugErlang then "-mode(compile)." else "",
      if debugErlang then "-include_lib(\"stdlib/include/ms_transform.hrl\")." else "",
@@ -157,15 +157,6 @@ tuple to be the name of the datastructure. We'll be using these for
 most constructors.
 
 More when I realise they're needed.
-
-This first time I'm going to avoid special-casing anything. Later
-there are some things I want to special-case to make Erlang interop
-easier: - Lists; - 0-Arity Constructors to Atoms (DONE); - Pairs; -
-Booleans; - Case Statements that operate only on arguments (erlang has
-special syntax for this); - Using Library functions, not Idris' ones;
-
-We emit constructors first, in the hope that we don't need to use all
-the constructor functions in favour of just building tuples immediately.
 -}
 
 generateErl :: [(Name,DDecl)] -> [ExportIFace] -> ErlCG ()
@@ -208,10 +199,13 @@ generateCtor name arity = addRecord name arity
 generateExportIFace :: Name -> String -> [Export] -> ErlCG ()
 generateExportIFace _ _ exports = mapM_ generateExport exports
 
--- TODO: Finish this
 generateExport :: Export -> ErlCG ()
-generateExport (ExportData _) = return ()
-generateExport (ExportFun _ _ _ _) = return () -- TODO: Generate Something
+generateExport (ExportData _) = return () -- Literally just string names of types, can't do anything with them.
+generateExport (ExportFun fn (FStr enm) ret args) = do liftIO . putStrLn $ erlAtom fn
+                                                       return ()
+  --emitForm (enm, length args) $
+  --  checkedExport enm
+
 
 generateExp :: DExp -> ErlCG String
 generateExp (DV lv)            = getVar lv
@@ -303,12 +297,6 @@ generateForeign rety (FStr nm) args = do checkedNm <- getNextCheckedFnName nm (l
 
                                          return $ erlCall checkedNm args'
 
-
-
-
-generateCallbackWrappers :: [(ErlT,String)] -> ErlCG [String]
-generateCallbackWrappers _ = return []
-
 -- Some Notes on Constants
 --
 -- - All Erlang's numbers are arbitrary precision. The VM copes with
@@ -325,6 +313,7 @@ generateCallbackWrappers _ = return []
 -- easier to assume all strings are full of printables, if they're
 -- constant.
 generateConst :: Const -> ErlCG String
+generateConst TheWorld = return "the_world"
 generateConst c | constIsType c = return $ strAtom (show c)
 generateConst (I i)   = return $ show i
 generateConst (BI i)  = return $ show i

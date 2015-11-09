@@ -11,32 +11,38 @@ import IRTS.CodegenErlang
 import System.Environment
 import System.Exit
 
+import Control.Monad (liftM)
+
 import Paths_idris_erlang
 
 data Opts = Opts { inputs :: [FilePath],
                    output :: FilePath,
-                   show_path :: Bool }
+                   show_path :: Bool,
+                   interface :: Bool }
 
-showUsage = do putStrLn "Usage: idris-erlang [--path] <ibc-files> [-o <output-file>]"
+erlDefaultOpts :: Opts
+erlDefaultOpts = Opts { inputs = [], output = "main.erl", show_path = False, interface = False}
+
+showUsage = do putStrLn "Usage: idris-erlang [--interface] [--path] <ibc-files> [-o <output-file>]"
                exitWith ExitSuccess
 
 getOpts :: IO Opts
 getOpts = do xs <- getArgs
-             return $ process (Opts [] "idris.erl" False) xs
+             return $ process erlDefaultOpts xs
   where
+    process opts ("--interface":xs) = process (opts { interface = True }) xs
     process opts ("--path":_) = opts {show_path = True}
     process opts ("-o":o:xs)  = process (opts {output = o}) xs
     process opts (x:xs)       = process (opts {inputs = x:inputs opts}) xs
     process opts []           = opts
 
 erl_main :: Opts -> Idris ()
-erl_main opts = do --addPkgDir "erlang" -- Hax
-                   elabPrims
-                   --loadModule "ErlTypes" -- Hax
-                   --addAutoImport "ErlTypes" -- Hax
+erl_main opts = do elabPrims
                    loadInputs (inputs opts) Nothing
-                   mainProg <- elabMain
-                   ir <- compile (Via "erlang") (output opts) (Just mainProg)
+                   mainProg <- if interface opts
+                               then return Nothing
+                               else liftM Just elabMain
+                   ir <- compile (Via "erlang") (output opts) mainProg
                    runIO $ codegenErlang ir
 
 main :: IO ()

@@ -40,6 +40,14 @@ mutual
   EIO : Type -> Type
   EIO = IO' FFI_Erl
 
+%inline
+erlcall : (fname : String) -> (ty : Type) -> {auto fty : FTy FFI_Erl [] ty} -> ty
+erlcall fname ty = foreign FFI_Erl fname ty
+
+%inline
+Erl_Export : Type
+Erl_Export = FFI_Export FFI_Erl "" []
+
 ErlPid : Type
 ErlPid = Ptr
 

@@ -1,8 +1,10 @@
 module Main where
 
-import Idris.Core.TT
 import Idris.AbsSyntax
+import Idris.Core.TT
 import Idris.ElabDecls
+import Idris.Main
+import Idris.ModeCommon
 import Idris.REPL
 
 import IRTS.Compiler
@@ -42,7 +44,7 @@ erl_main opts = do elabPrims
                    mainProg <- if interface opts
                                then return Nothing
                                else liftM Just elabMain
-                   ir <- compile (Via "erlang") (output opts) mainProg
+                   ir <- compile (Via IBCFormat "erlang") (output opts) mainProg
                    runIO $ codegenErlang ir
 
 main :: IO ()

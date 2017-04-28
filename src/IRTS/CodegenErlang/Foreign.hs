@@ -1,3 +1,6 @@
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE OverloadedStrings#-}
 module IRTS.CodegenErlang.Foreign where
 
 import Idris.Core.TT

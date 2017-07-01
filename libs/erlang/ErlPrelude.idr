@@ -1,16 +1,17 @@
 module ErlPrelude
 
-%access public
+%access export
 
 data ErlFn : Type -> Type where
   MkErlFun : (x : t) -> ErlFn t
 %used MkErlFun x
 
+public export
 data ErlRaw : Type -> Type where
   MkERaw : (x:t) -> ErlRaw t
 %used MkERaw x
 
-abstract data Atom : Type
+data Atom : Type
 
 data Erl_NumTypes: Type -> Type where
   Erl_IntChar    : Erl_NumTypes Char
@@ -23,6 +24,7 @@ mutual
     Erl_FunIO   : Erl_Types t -> Erl_FunTypes (EIO t)
     Erl_FunBase : Erl_Types t -> Erl_FunTypes t
 
+  public export
   data Erl_Types : Type -> Type where
     Erl_Str  : Erl_Types String
     Erl_Atom : Erl_Types Atom
@@ -33,18 +35,22 @@ mutual
     Erl_NumT : Erl_NumTypes t -> Erl_Types t
     Erl_Raw  : Erl_Types (ErlRaw a)
 
+  public export
   FFI_Erl : FFI
   FFI_Erl = MkFFI Erl_Types String String
 
+  public export
   -- Make your "Old MacDonald" jokes here please
   EIO : Type -> Type
   EIO = IO' FFI_Erl
 
 %inline
+public export
 erlcall : (fname : String) -> (ty : Type) -> {auto fty : FTy FFI_Erl [] ty} -> ty
 erlcall fname ty = foreign FFI_Erl fname ty
 
 %inline
+public export
 Erl_Export : Type
 Erl_Export = FFI_Export FFI_Erl "" []
 
@@ -54,7 +60,6 @@ ErlPid = Ptr
 -- Annoyingly, the File struct is abstract so we can't use it. I guess
 -- this helps prevent people mixing the two kinds of files... not that
 -- it would even be possible.
-abstract
 data EFile = EHandle Ptr
 
 namespace Erl
@@ -69,7 +74,7 @@ namespace Erl
 
   openFile : String -> Mode -> EIO EFile
   openFile filename mode = do p <- open filename (modeStr mode)
-                              return (EHandle p)
+                              pure (EHandle p)
     where modeStr : Mode -> String
           modeStr Read = "r"
           modeStr Write = "w"
@@ -81,22 +86,22 @@ namespace Erl
 
   closeFile : EFile -> EIO ()
   closeFile (EHandle p) = do x <- close p
-                             return ()
+                             pure ()
     where close : Ptr -> EIO Int
           close = foreign FFI_Erl "idris_erlang_rts:file_close" (Ptr -> EIO Int)
 
 
   fgetc' : EFile -> EIO (Maybe Char)
   fgetc' (EHandle h) = do c <- getChar h
-                          if (c < 0)
-                          then return Nothing
-                          else return (Just (cast c))
+                          pure $ if (c < 0)
+                                 then Nothing
+                                 else (Just (cast c))
     where getChar : Ptr -> EIO Int
           getChar = foreign FFI_Erl "idris_erlang_rts:read_chr" (Ptr -> EIO Int)
 
   fgetc : EFile -> EIO Char
   fgetc (EHandle h) = do c <- getChar h
-                         return (cast c)
+                         pure (cast c)
     where getChar : Ptr -> EIO Int
           getChar = foreign FFI_Erl "idris_erlang_rts:read_chr" (Ptr -> EIO Int)
 
@@ -106,19 +111,19 @@ namespace Erl
 
   fwrite : EFile -> String -> EIO ()
   fwrite (EHandle h) s = do writeFile h s
-                            return ()
+                            pure ()
     where writeFile : Ptr -> String -> EIO Int
           writeFile = foreign FFI_Erl "idris_erlang_rts:write_file" (Ptr -> String -> EIO Int)
 
   feof : EFile -> EIO Bool
   feof (EHandle h) = do res <- fileEOF h
-                        return (res /= 0)
+                        pure (res /= 0)
     where fileEOF : Ptr -> EIO Int
           fileEOF = foreign FFI_Erl "idris_erlang_rts:file_eof" (Ptr -> EIO Int)
 
   fflush : EFile -> EIO ()
   fflush (EHandle h) = do fileFlush h
-                          return ()
+                          pure ()
     where fileFlush : Ptr -> EIO Int
           fileFlush = foreign FFI_Erl "idris_erlang_rts:file_flush" (Ptr -> EIO Int)
 
@@ -131,33 +136,33 @@ namespace Erl
 
   nullStr : String -> EIO Bool
   nullStr s = do res <- strIsNull s
-                 return (res /= 0)
+                 pure (res /= 0)
     where strIsNull : String -> EIO Int
           strIsNull = foreign FFI_Erl "idris_erlang_rts:str_null" (String -> EIO Int)
 
 
   nullPtr : Ptr -> EIO Bool
   nullPtr p = do res <- isNull p
-                 return (res /= 0)
+                 pure (res /= 0)
     where isNull : Ptr -> EIO Int
           isNull = foreign FFI_Erl "idris_erlang_rts:ptr_null" (Ptr -> EIO Int)
 
   eqPtr : Ptr -> Ptr -> EIO Bool
   eqPtr x y = do res <- ptrIsEq x y
-                 return (res /= 0)
+                 pure (res /= 0)
     where ptrIsEq : Ptr -> Ptr -> EIO Int
           ptrIsEq = foreign FFI_Erl "idris_erlang_rts:ptr_eq" (Ptr -> Ptr -> EIO Int)
 
   validFile : EFile -> EIO Bool
   validFile (EHandle h) = do res <- nullPtr h
-                             return (not res)
+                             pure (not res)
 
   partial
   readFile : String -> EIO String
   readFile fn = do f <- openFile fn Read
                    c <- readFile' f ""
                    closeFile f
-                   return c
+                   pure c
     where
       partial
       readFile' : EFile -> String -> EIO String
@@ -165,7 +170,7 @@ namespace Erl
                                 if (not res)
                                 then do l <- fread f
                                         readFile' f (contents ++ l)
-                                else return contents
+                                else pure contents
 
 atom : String -> EIO Atom
 atom = foreign FFI_Erl "list_to_atom" (String -> EIO Atom)

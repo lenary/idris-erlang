@@ -1,12 +1,12 @@
 -- TODO: add idris --install <pkg> to install steps
 
 name:                idris-erlang
-version:             0.0.2.0
+version:             0.0.3.0
 synopsis:            Erlang Backend for the Idris Compiler
 license:             BSD3
 license-file:        LICENSE
 author:              Archibald Samuel Elliott
-maintainer:          ashe@st-andrews.ac.uk
+maintainer:          sam@lenary.co.uk
 category:            Compilers/Interpreters, Dependent Types
 build-type:          Simple
 cabal-version:       >=1.8

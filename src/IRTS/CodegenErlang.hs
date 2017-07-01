@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module IRTS.CodegenErlang (codegenErlang) where
 
 import           Idris.Core.TT
